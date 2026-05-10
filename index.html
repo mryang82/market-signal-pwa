@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0D1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Market Signal">
+<title>Market Signal v8</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0; padding: 0;
+  background: #0D1117; color: #E6EDF3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px; line-height: 1.5;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow-x: hidden;
+}
+.app { max-width: 600px; margin: 0 auto; padding: 12px; }
+
+/* HEADER */
+.header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 4px 14px; position: sticky; top: 0;
+  background: #0D1117; z-index: 10; border-bottom: 1px solid #222B3D;
+  margin-bottom: 14px;
+}
+.logo {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, #1E6FEB, #8957E5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.title { font-weight: 700; font-size: 15px; }
+.subtitle { font-size: 10px; color: #8B949E; margin-top: 1px; }
+.reset-btn {
+  margin-left: auto; background: #3D4859; border: none;
+  color: #fff; border-radius: 6px; padding: 6px 12px;
+  font-size: 11px; cursor: pointer;
+}
+
+/* SIGNAL CARD */
+.signal-card {
+  border-radius: 14px; padding: 16px;
+  border-left: 4px solid; margin-bottom: 14px;
+  background: rgba(0,0,0,0.4);
+}
+
+/* GAUGE */
+.gauge-container {
+  position: relative; width: 100%; max-width: 360px;
+  margin: 0 auto 12px; padding-top: 8px;
+}
+.gauge-svg { width: 100%; height: auto; display: block; }
+.gauge-value {
+  position: absolute; left: 50%; top: 62%;
+  transform: translate(-50%, -50%);
+  text-align: center; pointer-events: none;
+}
+.gauge-score-num {
+  font-size: 38px; font-weight: 900;
+  font-family: 'SF Mono', monospace; line-height: 1;
+}
+.gauge-score-label {
+  font-size: 9px; color: #8B949E;
+  letter-spacing: 1px; margin-top: 2px;
+  text-transform: uppercase; font-weight: 600;
+}
+.level-banner {
+  text-align: center; padding: 10px 12px;
+  border-radius: 10px; margin-bottom: 12px;
+  border: 2px solid;
+}
+.level-name {
+  font-size: 22px; font-weight: 800;
+  letter-spacing: 0.5px; line-height: 1;
+}
+.level-stage {
+  font-size: 10px; color: #8B949E;
+  margin-top: 4px; letter-spacing: 0.8px;
+  text-transform: uppercase; font-weight: 600;
+}
+.gauge-zones {
+  display: flex; gap: 2px; margin: 8px 0 4px;
+  font-size: 8px; color: #5A6678; font-weight: 600;
+}
+.gauge-zones span { flex: 1; text-align: center; }
+.prob-box {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 10px 12px; margin-top: 12px;
+}
+.prob-label { font-size: 11px; color: #8B949E; }
+.prob-value { font-size: 22px; font-weight: 800; font-family: monospace; }
+.prob-tag { font-size: 10px; color: #8B949E; font-style: italic; margin-top: 2px; }
+
+/* MID-DECLINE WARNING */
+.warning-box {
+  background: #1A0800; border: 1px solid #D29922;
+  border-radius: 8px; padding: 10px 12px; margin-top: 10px;
+}
+.warning-title {
+  font-size: 11px; font-weight: 700; color: #D29922;
+  margin-bottom: 4px;
+}
+.warning-text { font-size: 10px; color: #8B949E; }
+
+/* PRESETS */
+.section-title {
+  font-size: 11px; color: #8B949E; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.8px;
+  margin-bottom: 8px; padding: 0 4px;
+}
+.presets {
+  display: flex; gap: 6px; overflow-x: auto;
+  padding: 0 4px 12px; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.presets::-webkit-scrollbar { display: none; }
+.preset-btn {
+  flex-shrink: 0; padding: 8px 14px; border-radius: 18px;
+  background: #1A2230; border: 1px solid #222B3D; color: #E6EDF3;
+  font-size: 11px; font-weight: 500; cursor: pointer;
+  white-space: nowrap;
+}
+.preset-btn:active { transform: scale(0.96); }
+
+/* INPUT GRID */
+.input-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin-bottom: 14px;
+}
+.input-card {
+  background: #1A2230; border: 1px solid #222B3D;
+  border-radius: 10px; padding: 10px;
+}
+.input-label {
+  font-size: 10px; color: #8B949E; font-weight: 600;
+  display: flex; justify-content: space-between; margin-bottom: 4px;
+}
+.input-hint { color: #3D4859; font-size: 9px; }
+.input-row { display: flex; align-items: center; gap: 4px; }
+.num-input {
+  flex: 1; background: #0D1117; border: 1px solid #222B3D;
+  color: #E6EDF3; padding: 8px 10px; border-radius: 6px;
+  font-size: 16px; font-family: monospace; font-weight: 600;
+  width: 100%; min-width: 0;
+}
+.num-input:focus { outline: 2px solid #1E6FEB; }
+
+/* SCORE BREAKDOWN */
+.breakdown {
+  background: #161B22; border: 1px solid #222B3D;
+  border-radius: 12px; padding: 14px; margin-bottom: 14px;
+}
+.breakdown-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  font-family: monospace; font-size: 11px;
+}
+.score-item {
+  background: #1A2230; padding: 7px 10px; border-radius: 5px;
+  border: 1px solid #222B3D; display: flex; justify-content: space-between;
+}
+.score-key { color: #8B949E; }
+.score-val { font-weight: 700; }
+.score-val.pos { color: #3FB950; }
+.score-val.neg { color: #F85149; }
+.score-val.zero { color: #8B949E; }
+.total-score {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid #222B3D;
+  display: flex; justify-content: space-between; font-size: 12px;
+}
+.total-val { font-family: monospace; font-weight: 800; font-size: 16px; }
+
+/* CONFIRMATIONS */
+.conf-section { margin-top: 10px; padding: 10px; background: #161B22; border-radius: 8px; }
+.conf-line { font-size: 11px; margin: 2px 0; }
+.conf-line.sell { color: #F85149; }
+.conf-line.buy { color: #3FB950; }
+.conf-line.regime { color: #1E6FEB; }
+
+/* USAGE */
+.usage {
+  background: #161B22; border: 1px solid #222B3D;
+  border-radius: 12px; padding: 14px;
+  font-size: 11px; color: #8B949E; line-height: 1.7;
+}
+.usage strong { color: #E6EDF3; }
+.usage-title { font-weight: 700; color: #E6EDF3; margin-bottom: 6px; font-size: 12px; }
+
+/* INSTALL PROMPT */
+.install-prompt {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #1E6FEB; color: #fff; padding: 12px;
+  text-align: center; font-size: 13px; font-weight: 600;
+  cursor: pointer; display: none; z-index: 100;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+.install-prompt.show { display: block; animation: slideUp 0.3s; }
+@keyframes slideUp { from { transform: translateY(100%); } }
+.install-close {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  background: rgba(0,0,0,0.3); border: none; color: #fff;
+  border-radius: 50%; width: 24px; height: 24px;
+  font-size: 14px; cursor: pointer;
+}
+
+@media (min-width: 480px) {
+  .input-grid { grid-template-columns: 1fr 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  
+  <div class="header">
+    <div class="logo">⚡</div>
+    <div>
+      <div class="title">Market Signal v8</div>
+      <div class="subtitle">즉시 반응 · 입력 시 자동 재계산</div>
+    </div>
+    <button class="reset-btn" onclick="reset()">초기화</button>
+  </div>
+  
+  <div id="signal" class="signal-card"></div>
+  
+  <div class="section-title">📋 프리셋 (탭하여 적용)</div>
+  <div class="presets" id="presets"></div>
+  
+  <div class="section-title">📝 입력 지표</div>
+  <div class="input-grid" id="inputs"></div>
+  
+  <div class="breakdown">
+    <div class="section-title" style="padding: 0; margin-bottom: 10px;">📊 점수 분해</div>
+    <div class="breakdown-grid" id="breakdown"></div>
+    <div class="total-score">
+      <span style="color: #8B949E;">가중 종합 점수</span>
+      <span class="total-val" id="total-score">0</span>
+    </div>
+  </div>
+  
+  <div id="conf-section"></div>
+  
+  <div class="usage">
+    <div class="usage-title">💡 사용법</div>
+    • <strong>프리셋 클릭</strong>: 과거 시점 즉시 재현<br>
+    • <strong>입력 변경</strong>: 신호 즉시 재계산<br>
+    • <strong>홈화면 추가</strong>: 일반 앱처럼 사용 (Safari/Chrome 공유 메뉴)<br>
+    • <strong>오프라인</strong>: 인터넷 없이 작동<br>
+    • <strong>자동 저장</strong>: 마지막 입력값 기억
+  </div>
+  
+</div>
+
+<div class="install-prompt" id="install-prompt">
+  📱 홈 화면에 추가하여 앱처럼 사용하세요
+  <button class="install-close" onclick="closeInstall()">×</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// v8 알고리즘
+// ═══════════════════════════════════════════════════════════════
+
+const DEFAULT_INPUT = {
+  spx: 5300, spx_high: 5400, spx_ma200: 5100,
+  ndx: 17000, ndx_high: 17500,
+  vix: 18, vix_3m: 17, vix_3m_ago: 16,
+  fg: 55, fg_1m_ago: 50, rsi_w: 60,
+  hy: 320, hy_6m_ago: 350, yc: 0.5,
+};
+
+const INPUT_FIELDS = [
+  { key: "spx", label: "S&P 500 현재", step: 10 },
+  { key: "spx_high", label: "S&P 52주 고점", step: 10, hint: "ddSpx" },
+  { key: "spx_ma200", label: "S&P 200MA", step: 10, hint: "maDist" },
+  { key: "ndx", label: "NASDAQ 현재", step: 10 },
+  { key: "ndx_high", label: "NASDAQ 52주 고점", step: 10, hint: "ddNdx" },
+  { key: "vix", label: "VIX 현재", step: 0.5 },
+  { key: "vix_3m", label: "VIX 3M 평균", step: 0.5 },
+  { key: "vix_3m_ago", label: "VIX 3M 전", step: 0.5, hint: "vixSlope" },
+  { key: "fg", label: "F&G 현재", step: 1 },
+  { key: "fg_1m_ago", label: "F&G 1M 전", step: 1, hint: "fgChange" },
+  { key: "rsi_w", label: "주간 RSI", step: 1 },
+  { key: "hy", label: "HY 스프레드 (bp)", step: 10 },
+  { key: "hy_6m_ago", label: "HY 6M 전 (bp)", step: 10, hint: "hyRoc" },
+  { key: "yc", label: "2y/10y 스프레드 (%)", step: 0.1 },
+];
+
+const PRESETS = {
+  "현재": DEFAULT_INPUT,
+  "🟢 STRONG_BUY 2020.03 COVID": {
+    spx: 2400, spx_high: 3380, spx_ma200: 3100, ndx: 7400, ndx_high: 9750,
+    vix: 60, vix_3m: 30, vix_3m_ago: 14, fg: 8, fg_1m_ago: 65,
+    rsi_w: 28, hy: 1100, hy_6m_ago: 390, yc: 0.6,
+  },
+  "🔴 WARNING 2021.11 정점": {
+    spx: 4700, spx_high: 4720, spx_ma200: 4350, ndx: 16000, ndx_high: 16100,
+    vix: 18, vix_3m: 16, vix_3m_ago: 17, fg: 84, fg_1m_ago: 78,
+    rsi_w: 73, hy: 310, hy_6m_ago: 300, yc: 1.2,
+  },
+  "🚨 CRASH 2008.10 리먼": {
+    spx: 850, spx_high: 1565, spx_ma200: 1300, ndx: 1500, ndx_high: 2860,
+    vix: 89, vix_3m: 50, vix_3m_ago: 22, fg: 5, fg_1m_ago: 30,
+    rsi_w: 22, hy: 1900, hy_6m_ago: 620, yc: 1.5,
+  },
+  "🟡 CAUTION 가상": {
+    spx: 5400, spx_high: 5410, spx_ma200: 4900, ndx: 17500, ndx_high: 17600,
+    vix: 13, vix_3m: 14, vix_3m_ago: 16, fg: 78, fg_1m_ago: 72,
+    rsi_w: 71, hy: 290, hy_6m_ago: 320, yc: 0.3,
+  },
+};
+
+// 점수 함수
+function scoreVix(v, v3m) {
+  if (v >= 50) return 4; if (v >= 40) return 3; if (v >= 30) return 2;
+  if (v >= 20) return 0;
+  if (v <= 12 && v < v3m * 0.85) return -2;
+  if (v <= 14) return -1; return 0;
+}
+function scoreFg(f) {
+  if (f <= 10) return 3; if (f <= 20) return 2; if (f <= 30) return 1;
+  if (f >= 85) return -3; if (f >= 75) return -2; if (f >= 65) return -1;
+  return 0;
+}
+function scoreRsi(r) {
+  if (r <= 30) return 2; if (r <= 35) return 1;
+  if (r >= 75) return -2; if (r >= 70) return -1; return 0;
+}
+function scoreMa(d) {
+  if (d <= -20) return 3; if (d <= -10) return 2; if (d <= -5) return 1;
+  if (d >= 18) return -3; if (d >= 12) return -2; if (d >= 8) return -1;
+  return 0;
+}
+function scoreDd(dd) {
+  if (dd <= -30) return 4; if (dd <= -25) return 3;
+  if (dd <= -15) return 2; if (dd <= -10) return 1; return 0;
+}
+function scoreHy(h) {
+  if (h >= 800) return 3; if (h >= 600) return 2; if (h >= 500) return 1;
+  if (h >= 400) return -1; if (h >= 350) return -1; return 0;
+}
+function scoreYc(s) {
+  if (s < -0.5) return -2; if (s < 0) return -1; if (s < 0.1) return -1; return 0;
+}
+function scoreHyMom(r) {
+  if (r >= 50) return 3; if (r >= 25) return 2; if (r >= 10) return 1;
+  if (r <= -25) return 1; return 0;
+}
+function scoreFgMom(c) {
+  if (c >= 25) return -2; if (c >= 15) return -1;
+  if (c <= -25) return 2; if (c <= -15) return 1; return 0;
+}
+function scoreVixSlope(s) {
+  if (s >= 50) return -2; if (s >= 25) return -1; if (s <= -30) return 1; return 0;
+}
+
+const W = { vix: 1.0, fg: 1.0, rsi: 0.6, ma: 0.7, dd: 0.9, hy: 1.0, yc: 0.8, hy_mom: 0.7, fg_mom: 0.5, vix_slope: 0.5 };
+
+function compute(d) {
+  const ma_dist = ((d.spx / d.spx_ma200) - 1) * 100;
+  const spx_dd = ((d.spx / d.spx_high) - 1) * 100;
+  const ndx_dd = ((d.ndx / d.ndx_high) - 1) * 100;
+  const avg_dd = (spx_dd + ndx_dd) / 2;
+  const hy_roc = ((d.hy - d.hy_6m_ago) / d.hy_6m_ago) * 100;
+  const fg_change = d.fg - d.fg_1m_ago;
+  const vix_slope = ((d.vix - d.vix_3m_ago) / d.vix_3m_ago) * 100;
+  
+  const scores = {
+    vix: scoreVix(d.vix, d.vix_3m), fg: scoreFg(d.fg),
+    rsi: scoreRsi(d.rsi_w), ma: scoreMa(ma_dist), dd: scoreDd(avg_dd),
+    hy: scoreHy(d.hy), yc: scoreYc(d.yc),
+    hy_mom: scoreHyMom(hy_roc), fg_mom: scoreFgMom(fg_change), vix_slope: scoreVixSlope(vix_slope),
+  };
+  
+  let weighted = Object.entries(scores).reduce((s, [k, v]) => s + v * W[k], 0);
+  
+  // Regime
+  let regime = "BULL_MID", regimeLabel = "중기 강세장";
+  if (avg_dd <= -15) { regime = "BEAR"; regimeLabel = "약세장 (큰 하락)"; }
+  else if (d.yc < 0.3 && d.hy >= 350) { regime = "LATE_CYCLE"; regimeLabel = "후기 사이클"; }
+  else if (d.yc >= 1.5) { regime = "BULL_EARLY"; regimeLabel = "초기 강세장"; }
+  
+  const rW = { BULL_EARLY: [0.85, 1], BULL_MID: [1, 1], LATE_CYCLE: [1.1, 0.95], BEAR: [0.7, 1.1] };
+  const [rs, rb] = rW[regime];
+  if (weighted < 0) weighted *= rs; else weighted *= rb;
+  
+  // Sell conf
+  let sellConf = 0; const sellChecks = [];
+  if (d.yc < 0.1) { sellConf++; sellChecks.push("YC<0.1"); }
+  if (d.hy >= 400) { sellConf++; sellChecks.push("HY≥400"); }
+  if (ma_dist >= 12) { sellConf++; sellChecks.push("MA+12%"); }
+  if (d.fg > 80) { sellConf++; sellChecks.push("F&G>80"); }
+  if (hy_roc >= 25) { sellConf++; sellChecks.push("HY ROC≥25%"); }
+  
+  if (weighted <= -3) {
+    if (sellConf === 0) weighted = Math.max(weighted, -3);
+    else if (sellConf === 1) weighted = Math.max(weighted, -6.5);
+  }
+  
+  // Buy panic
+  let buyPanic = 0; const buyChecks = [];
+  if (d.vix >= 30) { buyPanic++; buyChecks.push("VIX≥30"); }
+  if (avg_dd <= -15) { buyPanic++; buyChecks.push("DD≤-15%"); }
+  if (d.hy >= 600) { buyPanic++; buyChecks.push("HY≥600"); }
+  if (d.fg <= 15) { buyPanic++; buyChecks.push("F&G≤15"); }
+  
+  if (weighted >= 8 && buyPanic < 2) weighted = Math.min(weighted, 7);
+  
+  let buyExtreme = 0;
+  if (d.vix >= 40) buyExtreme++;
+  if (avg_dd <= -25) buyExtreme++;
+  if (d.hy >= 800) buyExtreme++;
+  if (d.fg <= 10) buyExtreme++;
+  if (weighted >= 13 && buyExtreme < 3) weighted = Math.min(weighted, 12);
+  
+  // Mid-Decline
+  let midDecline = false; let mdFactors = [];
+  if (weighted >= 4 && hy_roc >= 25 && d.hy < 1000 && avg_dd > -25) {
+    let isCap = false;
+    if (d.vix >= 40) isCap = true;
+    else if (d.vix >= 25 && (d.fg <= 20 || avg_dd <= -20)) isCap = true;
+    if (!isCap) {
+      midDecline = true;
+      mdFactors = [`HY ROC +${hy_roc.toFixed(0)}%`, `HY ${d.hy}`, `DD ${avg_dd.toFixed(0)}%`, `VIX ${d.vix}`];
+      if (weighted >= 13) weighted = Math.min(weighted, 12);
+      else if (weighted >= 8) weighted = Math.min(weighted, 7);
+      else weighted = Math.min(weighted, 3);
+    }
+  }
+  
+  let level, color;
+  if (weighted >= 13) { level = "CRASH_BUY"; color = "#00C853"; }
+  else if (weighted >= 8) { level = "STRONG_BUY"; color = "#43A047"; }
+  else if (weighted >= 4) { level = "BUY"; color = "#66BB6A"; }
+  else if (weighted >= 1.5) { level = "WATCH"; color = "#9CCC65"; }
+  else if (weighted >= -1.5) { level = "NEUTRAL"; color = "#8B949E"; }
+  else if (weighted >= -4) { level = "CAUTION"; color = "#FB8C00"; }
+  else if (weighted >= -7) { level = "WARNING"; color = "#E53935"; }
+  else if (weighted >= -10) { level = "STRONG_SELL"; color = "#C62828"; }
+  else { level = "CRASH_WARNING"; color = "#B71C1C"; }
+  
+  return {
+    level, color, weighted: weighted.toFixed(2),
+    regime, regimeLabel, sellConf, sellChecks, buyPanic, buyChecks,
+    midDecline, mdFactors, scores,
+    derived: { ma_dist, spx_dd, ndx_dd, avg_dd, hy_roc, fg_change, vix_slope },
+  };
+}
+
+const PROB = {
+  CRASH_BUY: { up15: 60, n: 5, tag: "역사적 매수" },
+  STRONG_BUY: { up15: 75, n: 12, tag: "가장 신뢰" },
+  BUY: { up15: 56, n: 9, tag: "매수 우위" },
+  WATCH: { up15: 17, n: 6, tag: "관망" },
+  NEUTRAL: { tag: "중립" },
+  CAUTION: { down15: 43, n: 7, tag: "주의" },
+  WARNING: { down15: 62, n: 8, tag: "경보" },
+  STRONG_SELL: { down15: 100, n: 1, tag: "강력 매도" },
+  CRASH_WARNING: { down15: 100, n: 1, tag: "패닉 경보" },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// UI 렌더링
+// ═══════════════════════════════════════════════════════════════
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem("v8_state");
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return { ...DEFAULT_INPUT };
+}
+
+function saveState() {
+  try { localStorage.setItem("v8_state", JSON.stringify(state)); } catch (e) {}
+}
+
+function update(key, val) {
+  state[key] = parseFloat(val) || 0;
+  saveState();
+  render();
+}
+
+function applyPreset(vals) {
+  state = { ...vals };
+  saveState();
+  renderInputs();
+  render();
+}
+
+function reset() {
+  if (confirm("모든 입력값을 초기화하시겠습니까?")) {
+    state = { ...DEFAULT_INPUT };
+    saveState();
+    renderInputs();
+    render();
+  }
+}
+
+function renderPresets() {
+  const html = Object.entries(PRESETS).map(([name, vals]) =>
+    `<button class="preset-btn" onclick='applyPreset(${JSON.stringify(vals)})'>${name}</button>`
+  ).join("");
+  document.getElementById("presets").innerHTML = html;
+}
+
+function renderInputs() {
+  const html = INPUT_FIELDS.map(f => `
+    <div class="input-card">
+      <div class="input-label">
+        <span>${f.label}</span>
+        <span class="input-hint" id="hint-${f.key}"></span>
+      </div>
+      <div class="input-row">
+        <input type="number" step="${f.step}" inputmode="decimal"
+               class="num-input" id="input-${f.key}"
+               value="${state[f.key]}"
+               onchange="update('${f.key}', this.value)"
+               oninput="update('${f.key}', this.value)">
+      </div>
+    </div>
+  `).join("");
+  document.getElementById("inputs").innerHTML = html;
+}
+
+function buildGauge(score, color) {
+  const cx = 180, cy = 175, r = 130;
+  const ZONES = [
+    { from: -15, to: -10, color: "#B71C1C" },  // CRASH_WARNING
+    { from: -10, to: -7,  color: "#C62828" },  // STRONG_SELL
+    { from: -7,  to: -4,  color: "#E53935" },  // WARNING
+    { from: -4,  to: -1.5, color: "#FB8C00" }, // CAUTION
+    { from: -1.5, to: 1.5, color: "#5A6678" }, // NEUTRAL
+    { from: 1.5, to: 4,   color: "#9CCC65" },  // WATCH
+    { from: 4,   to: 8,   color: "#66BB6A" },  // BUY
+    { from: 8,   to: 13,  color: "#43A047" },  // STRONG_BUY
+    { from: 13,  to: 15,  color: "#00C853" },  // CRASH_BUY
+  ];
+  
+  // -15 → 180°, +15 → 0°
+  const angleFromScore = (s) => 180 - (s + 15) * 6;
+  const xy = (angle, rad) => ({
+    x: cx + rad * Math.cos(angle * Math.PI / 180),
+    y: cy - rad * Math.sin(angle * Math.PI / 180)
+  });
+  
+  // 9개 색상 segment
+  let arcs = "";
+  ZONES.forEach((zone, i) => {
+    const a1 = angleFromScore(zone.from);
+    const a2 = angleFromScore(zone.to);
+    const p1 = xy(a1, r);
+    const p2 = xy(a2, r);
+    arcs += `<path d="M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${r} ${r} 0 0 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}" stroke="${zone.color}" stroke-width="32" fill="none" opacity="0.92"/>`;
+  });
+  
+  // 단계 구분선 (작은 tick)
+  let ticks = "";
+  [-10, -7, -4, -1.5, 1.5, 4, 8, 13].forEach(s => {
+    const a = angleFromScore(s);
+    const inner = xy(a, r - 17);
+    const outer = xy(a, r + 17);
+    ticks += `<line x1="${inner.x.toFixed(1)}" y1="${inner.y.toFixed(1)}" x2="${outer.x.toFixed(1)}" y2="${outer.y.toFixed(1)}" stroke="#0D1117" stroke-width="2"/>`;
+  });
+  
+  // 숫자 라벨 (-15, -10, -7, -4, 0, +4, +8, +13, +15)
+  let labels = "";
+  [-15, -10, -7, -4, 0, 4, 8, 13, 15].forEach(s => {
+    const a = angleFromScore(s);
+    const pos = xy(a, r + 28);
+    const text = s > 0 ? `+${s}` : `${s}`;
+    labels += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" fill="#5A6678" font-size="10" font-family="monospace" font-weight="600" text-anchor="middle" dominant-baseline="middle">${text}</text>`;
+  });
+  
+  // 바늘 (needle)
+  const clamped = Math.max(-15, Math.min(15, score));
+  const needleA = angleFromScore(clamped);
+  const needleEnd = xy(needleA, r - 6);
+  const needleBase1 = xy(needleA + 90, 5);
+  const needleBase2 = xy(needleA - 90, 5);
+  
+  const needle = `
+    <polygon points="${needleEnd.x.toFixed(1)},${needleEnd.y.toFixed(1)} ${(cx + needleBase1.x - cx).toFixed(1)},${(cy + needleBase1.y - cy).toFixed(1)} ${(cx + needleBase2.x - cx).toFixed(1)},${(cy + needleBase2.y - cy).toFixed(1)}"
+             fill="${color}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="${cx}" cy="${cy}" r="9" fill="${color}" stroke="white" stroke-width="2.5"/>
+    <circle cx="${cx}" cy="${cy}" r="3" fill="white"/>
+  `;
+  
+  return `
+    <svg class="gauge-svg" viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg">
+      ${arcs}
+      ${ticks}
+      ${labels}
+      ${needle}
+    </svg>
+  `;
+}
+
+const STAGE_LABELS = {
+  CRASH_BUY: "🟢🟢🟢 역사적 매수 기회",
+  STRONG_BUY: "🟢🟢 강력 매수 신호",
+  BUY: "🟢 매수 신호",
+  WATCH: "⚪ 관망",
+  NEUTRAL: "⚪ 중립",
+  CAUTION: "🟡 주의",
+  WARNING: "🔴🔴 경보",
+  STRONG_SELL: "🔴🔴🔴 강력 매도",
+  CRASH_WARNING: "🚨🚨🚨 패닉 경보",
+};
+
+function render() {
+  const sig = compute(state);
+  const prob = PROB[sig.level] || {};
+  
+  // Signal card
+  const signalEl = document.getElementById("signal");
+  signalEl.style.borderColor = sig.color;
+  signalEl.style.background = `linear-gradient(180deg, ${sig.color}10, rgba(13,17,23,0.4))`;
+  
+  // Gauge + 단계 표시
+  let html = `
+    <div class="gauge-container">
+      ${buildGauge(parseFloat(sig.weighted), sig.color)}
+      <div class="gauge-value">
+        <div class="gauge-score-num" style="color: ${sig.color};">${sig.weighted}</div>
+        <div class="gauge-score-label">SCORE</div>
+      </div>
+    </div>
+    <div class="level-banner" style="border-color: ${sig.color}; background: ${sig.color}18;">
+      <div class="level-name" style="color: ${sig.color};">${sig.level}</div>
+      <div class="level-stage">${STAGE_LABELS[sig.level] || ""}</div>
+    </div>
+    <div class="score-info" style="font-size: 11px; color: #8B949E; text-align: center; margin-bottom: 10px;">
+      국면: <strong style="color: #E6EDF3;">${sig.regime}</strong> (${sig.regimeLabel})
+    </div>
+  `;
+  
+  if (prob.up15) {
+    html += `<div class="prob-box" style="border-color: ${sig.color}40;">
+      <div class="prob-label">📊 12개월 내 +15% 확률</div>
+      <div class="prob-value" style="color: #3FB950;">${prob.up15}%</div>
+      <div class="prob-tag">${prob.tag} · n=${prob.n}</div>
+    </div>`;
+  } else if (prob.down15) {
+    html += `<div class="prob-box" style="border-color: ${sig.color}40;">
+      <div class="prob-label">📊 12개월 내 -15% MDD 확률</div>
+      <div class="prob-value" style="color: #F85149;">${prob.down15}%</div>
+      <div class="prob-tag">${prob.tag} · n=${prob.n}</div>
+    </div>`;
+  } else if (prob.tag) {
+    html += `<div class="prob-box"><div class="prob-tag">${prob.tag}</div></div>`;
+  }
+  
+  if (sig.midDecline) {
+    html += `<div class="warning-box">
+      <div class="warning-title">⚠️ Mid-Decline 함정 — 매수 신호 1단계 강등</div>
+      <div class="warning-text">${sig.mdFactors.join(" · ")}</div>
+    </div>`;
+  }
+  
+  signalEl.innerHTML = html;
+  
+  // Update input hints
+  document.getElementById("hint-spx_high").textContent = `DD ${sig.derived.spx_dd.toFixed(1)}%`;
+  document.getElementById("hint-spx_ma200").textContent = `${sig.derived.ma_dist > 0 ? '+' : ''}${sig.derived.ma_dist.toFixed(1)}%`;
+  document.getElementById("hint-ndx_high").textContent = `DD ${sig.derived.ndx_dd.toFixed(1)}%`;
+  document.getElementById("hint-vix_3m_ago").textContent = `slope ${sig.derived.vix_slope > 0 ? '+' : ''}${sig.derived.vix_slope.toFixed(0)}%`;
+  document.getElementById("hint-fg_1m_ago").textContent = `${sig.derived.fg_change > 0 ? '+' : ''}${sig.derived.fg_change}`;
+  document.getElementById("hint-hy_6m_ago").textContent = `ROC ${sig.derived.hy_roc > 0 ? '+' : ''}${sig.derived.hy_roc.toFixed(0)}%`;
+  
+  // Score breakdown
+  const breakdownHtml = Object.entries(sig.scores).map(([k, s]) =>
+    `<div class="score-item">
+      <span class="score-key">${k}</span>
+      <span class="score-val ${s > 0 ? 'pos' : s < 0 ? 'neg' : 'zero'}">${s > 0 ? '+' : ''}${s}</span>
+    </div>`
+  ).join("");
+  document.getElementById("breakdown").innerHTML = breakdownHtml;
+  document.getElementById("total-score").textContent = sig.weighted;
+  document.getElementById("total-score").style.color = sig.color;
+  
+  // Confirmations
+  let confHtml = "";
+  if (sig.regime !== "BULL_MID") {
+    confHtml += `<div class="conf-section">
+      <div class="conf-line regime">🌐 ${sig.regimeLabel} → 매도 ${sig.regime === "BEAR" ? "0.70x" : sig.regime === "LATE_CYCLE" ? "1.10x" : "0.85x"}, 매수 ${sig.regime === "BEAR" ? "1.10x" : "1.00x"}</div>
+    </div>`;
+  }
+  if (sig.sellChecks.length > 0) {
+    confHtml += `<div class="conf-section">
+      <div class="conf-line sell">🔻 매도 confirmation (${sig.sellConf}/5): ${sig.sellChecks.join(", ")}</div>
+    </div>`;
+  }
+  if (sig.buyChecks.length > 0) {
+    confHtml += `<div class="conf-section">
+      <div class="conf-line buy">🟢 매수 패닉 (${sig.buyPanic}/4): ${sig.buyChecks.join(", ")}</div>
+    </div>`;
+  }
+  document.getElementById("conf-section").innerHTML = confHtml;
+}
+
+// PWA install prompt
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("install-prompt").classList.add("show");
+});
+function closeInstall() {
+  document.getElementById("install-prompt").classList.remove("show");
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt = null;
+  }
+}
+
+// Service worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./service-worker.js")
+    .catch(err => console.log("SW failed:", err));
+}
+
+// Init
+renderPresets();
+renderInputs();
+render();
+</script>
+</body>
+</html>
