@@ -289,6 +289,41 @@ body {
   font-size: 8px; padding: 1px 5px; border-radius: 8px;
   margin-left: 4px; font-weight: 700;
 }
+
+/* FETCH RESULT PANEL */
+.fetch-result {
+  background: #161B22; border: 1px solid #222B3D;
+  border-radius: 10px; padding: 12px; margin-bottom: 14px;
+  display: none;
+}
+.fetch-result.show { display: block; }
+.fetch-result-title {
+  font-size: 11px; font-weight: 700; margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.fetch-result-close {
+  background: transparent; border: none; color: #8B949E;
+  font-size: 16px; cursor: pointer; padding: 0;
+}
+.fetch-item-list {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  font-size: 10px; font-family: monospace;
+}
+.fetch-item {
+  padding: 5px 8px; border-radius: 4px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.fetch-item.success {
+  background: #43A04715; color: #43A047;
+}
+.fetch-item.fail {
+  background: #F8514915; color: #F85149;
+}
+.fetch-item-error {
+  font-size: 9px; color: #F85149; margin-top: 6px;
+  padding: 6px 8px; background: #F8514908; border-radius: 4px;
+  word-break: break-all; line-height: 1.5;
+}
 </style>
 </head>
 <body>
@@ -310,6 +345,15 @@ body {
       🔄 자동 가져오기
     </button>
     <button class="settings-btn" onclick="openSettings()">⚙️</button>
+  </div>
+  
+  <div class="fetch-result" id="fetch-result">
+    <div class="fetch-result-title">
+      <span id="fetch-result-title-text">📊 가져오기 결과</span>
+      <button class="fetch-result-close" onclick="closeFetchResult()">×</button>
+    </div>
+    <div class="fetch-item-list" id="fetch-result-list"></div>
+    <div class="fetch-item-error" id="fetch-result-errors" style="display:none;"></div>
   </div>
   
   <div class="section-title">📋 프리셋 (탭하여 적용)</div>
@@ -348,14 +392,21 @@ body {
 <!-- 설정 모달 -->
 <div class="modal-overlay" id="settings-modal" onclick="if(event.target===this) closeSettings()">
   <div class="modal">
-    <h3>⚙️ 설정 — FRED API Key</h3>
+    <h3>⚙️ 설정</h3>
     
-    <label>FRED API Key (32자리)</label>
+    <label>📊 GitHub 자동화 저장소 (옵션 B - 권장)</label>
+    <input type="text" id="github-user-input" placeholder="GitHub 사용자명 (예: mryang82)" autocomplete="off">
+    <input type="text" id="github-repo-input" placeholder="저장소명 (예: market-signal-monitor-auto)" autocomplete="off" style="margin-top:6px;">
+    <div class="modal-help">
+      자동화 저장소가 <strong>Public</strong>이어야 함<br>
+      → data.json을 직접 읽어서 가장 안정적인 방법
+    </div>
+    
+    <label style="margin-top: 16px;">🔑 FRED API Key (백업용 - proxy fallback 시)</label>
     <input type="text" id="fred-key-input" placeholder="a1b2c3d4e5f6..." autocomplete="off">
     <div class="modal-help">
       • 무료 발급: <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank">fredaccount.stlouisfed.org/apikeys</a><br>
-      • 본인 기기에만 저장 (localStorage), 서버에 전송 안 됨<br>
-      • HY Spread, 2y/10y Yield 자동 가져오기에 필요
+      • GitHub 저장소가 작동하면 이건 필요 없음
     </div>
     
     <div class="modal-buttons">
@@ -835,22 +886,25 @@ function closeInstall() {
 // 설정 모달
 // ═══════════════════════════════════════════════════════════════
 function openSettings() {
-  const key = localStorage.getItem("fred_key") || "";
-  document.getElementById("fred-key-input").value = key;
+  document.getElementById("github-user-input").value = localStorage.getItem("github_user") || "mryang82";
+  document.getElementById("github-repo-input").value = localStorage.getItem("github_repo") || "market-signal-monitor-auto";
+  document.getElementById("fred-key-input").value = localStorage.getItem("fred_key") || "";
   document.getElementById("settings-modal").classList.add("show");
 }
 function closeSettings() {
   document.getElementById("settings-modal").classList.remove("show");
 }
 function saveSettings() {
-  const key = document.getElementById("fred-key-input").value.trim();
-  if (key) {
-    localStorage.setItem("fred_key", key);
-    alert("✅ FRED API Key 저장됨");
-  } else {
-    localStorage.removeItem("fred_key");
-    alert("FRED Key 삭제됨");
-  }
+  const ghUser = document.getElementById("github-user-input").value.trim();
+  const ghRepo = document.getElementById("github-repo-input").value.trim();
+  const fredKey = document.getElementById("fred-key-input").value.trim();
+  
+  if (ghUser) localStorage.setItem("github_user", ghUser);
+  if (ghRepo) localStorage.setItem("github_repo", ghRepo);
+  if (fredKey) localStorage.setItem("fred_key", fredKey);
+  else localStorage.removeItem("fred_key");
+  
+  alert("✅ 설정 저장됨");
   closeSettings();
 }
 
@@ -866,7 +920,7 @@ function hideProgress() {
 }
 
 async function fetchFearGreed() {
-  const r = await fetch('https://api.alternative.me/fng/?limit=30');
+  const r = await fetch('https://api.alternative.me/fng/?limit=30', { signal: AbortSignal.timeout(15000) });
   const data = await r.json();
   const current = parseInt(data.data[0].value);
   const idx = Math.min(29, data.data.length - 1);
@@ -874,23 +928,60 @@ async function fetchFearGreed() {
   return { current, month_ago: monthAgo };
 }
 
-async function fetchStooq(symbol) {
-  // CORS 우회: corsproxy.io 사용
-  const url = `https://corsproxy.io/?https://stooq.com/q/d/l/?s=${symbol}&i=d`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Stooq ${symbol}: HTTP ${r.status}`);
-  const text = await r.text();
+// 통합 fetch — 직접 + 다중 proxy fallback (15초 타임아웃)
+async function fetchWithFallback(url, parser = null) {
+  const proxies = [
+    { name: "direct", build: u => u },
+    { name: "corsproxy.io", build: u => `https://corsproxy.io/?${encodeURIComponent(u)}` },
+    { name: "allorigins", build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+    { name: "codetabs", build: u => `https://api.codetabs.com/v1/proxy?quest=${u}` },
+    { name: "cors.sh", build: u => `https://proxy.cors.sh/${u}` },
+    { name: "thingproxy", build: u => `https://thingproxy.freeboard.io/fetch/${u}` },
+  ];
   
-  // CSV 파싱: Date,Open,High,Low,Close,Volume
+  const errors = [];
+  for (const { name, build } of proxies) {
+    try {
+      const r = await fetch(build(url), { signal: AbortSignal.timeout(15000) });
+      if (!r.ok) {
+        errors.push(`${name}: HTTP ${r.status}`);
+        continue;
+      }
+      const text = await r.text();
+      if (!text || text.length < 50) {
+        errors.push(`${name}: empty`);
+        continue;
+      }
+      // 파싱 시도
+      if (parser) {
+        try {
+          return parser(text);
+        } catch (pe) {
+          errors.push(`${name}: parse fail ${pe.message}`);
+          continue;
+        }
+      }
+      return text;
+    } catch (e) {
+      errors.push(`${name}: ${e.name === 'TimeoutError' ? 'timeout' : (e.message || e.name)}`);
+    }
+  }
+  throw new Error(errors.slice(0, 3).join(" | "));
+}
+
+async function fetchStooq(symbol) {
+  const url = `https://stooq.com/q/d/l/?s=${symbol}&i=d`;
+  const text = await fetchWithFallback(url);
+  
   const lines = text.trim().split('\n');
-  if (lines.length < 200) throw new Error(`${symbol}: 데이터 부족`);
+  if (lines.length < 200) throw new Error(`데이터 부족 (${lines.length}줄)`);
   
   const data = lines.slice(1).map(line => {
     const cols = line.split(',');
     return { date: cols[0], close: parseFloat(cols[4]) };
   }).filter(d => !isNaN(d.close));
   
-  if (data.length < 200) throw new Error(`${symbol}: 유효 데이터 부족`);
+  if (data.length < 200) throw new Error(`유효 데이터 부족 (${data.length})`);
   
   const latest = data[data.length - 1];
   const last200 = data.slice(-200);
@@ -903,9 +994,11 @@ async function fetchStooq(symbol) {
     high52w: Math.max(...last252.map(d => d.close)),
     avg_3m: last63.reduce((s, d) => s + d.close, 0) / last63.length,
     value_3m_ago: last63[0].close,
-    weekly_data: data,  // RSI 계산용
+    weekly_data: data,
   };
 }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function calcRSI(prices, period = 14) {
   if (prices.length < period + 1) return null;
@@ -924,21 +1017,25 @@ function calcRSI(prices, period = 14) {
 
 async function fetchFRED(seriesId, apiKey) {
   const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&sort_order=desc&limit=200`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`FRED ${seriesId}: HTTP ${r.status}`);
-  const data = await r.json();
   
-  if (!data.observations) throw new Error(`FRED ${seriesId}: 응답 형식 오류`);
+  const text = await fetchWithFallback(url);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`JSON parse 실패: ${text.slice(0, 100)}`);
+  }
+  
+  if (!data.observations) throw new Error(`응답 형식 오류 (no observations)`);
   
   const obs = data.observations
     .map(o => ({ date: o.date, value: parseFloat(o.value) }))
     .filter(o => !isNaN(o.value));
   
-  if (obs.length === 0) throw new Error(`FRED ${seriesId}: 유효 데이터 없음`);
+  if (obs.length === 0) throw new Error(`유효 데이터 없음`);
   
   const current = obs[0].value;
   
-  // 6개월 전 (대략)
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   let value_6m_ago = current;
@@ -954,20 +1051,129 @@ async function fetchFRED(seriesId, apiKey) {
   return { current, value_6m_ago };
 }
 
-async function fetchAllData() {
-  const fredKey = localStorage.getItem("fred_key");
-  if (!fredKey) {
-    alert("⚙️ 먼저 FRED API Key를 설정하세요");
-    openSettings();
-    return;
+// 결과 패널 표시
+function showFetchResult(items, errors) {
+  const panel = document.getElementById("fetch-result");
+  const list = document.getElementById("fetch-result-list");
+  const errorsEl = document.getElementById("fetch-result-errors");
+  const titleEl = document.getElementById("fetch-result-title-text");
+  
+  const successCount = items.filter(i => i.success).length;
+  const totalCount = items.length;
+  
+  titleEl.innerHTML = errors.length === 0 
+    ? `✅ 모든 데이터 갱신 완료 (${successCount}/${totalCount})`
+    : `⚠️ 가져오기 결과 (${successCount}/${totalCount})`;
+  
+  // 항목 목록
+  list.innerHTML = items.map(i => `
+    <div class="fetch-item ${i.success ? 'success' : 'fail'}">
+      <span>${i.success ? '✓' : '✗'} ${i.name}</span>
+      <span style="opacity:0.7;">${i.success ? i.value : '실패'}</span>
+    </div>
+  `).join('');
+  
+  // 에러 상세
+  if (errors.length > 0) {
+    errorsEl.style.display = "block";
+    errorsEl.innerHTML = "<strong>에러 상세:</strong><br>" + 
+      errors.map(e => `• ${e}`).join("<br>");
+  } else {
+    errorsEl.style.display = "none";
   }
   
+  panel.classList.add("show");
+}
+
+function closeFetchResult() {
+  document.getElementById("fetch-result").classList.remove("show");
+}
+
+async function fetchDataJson() {
+  const ghUser = localStorage.getItem("github_user") || "mryang82";
+  const ghRepo = localStorage.getItem("github_repo") || "market-signal-monitor-auto";
+  const url = `https://raw.githubusercontent.com/${ghUser}/${ghRepo}/main/data.json?t=${Date.now()}`;
+  
+  const r = await fetch(url, { 
+    signal: AbortSignal.timeout(10000),
+    cache: "no-cache"
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return await r.json();
+}
+
+async function fetchAllData() {
   const btn = document.getElementById("fetch-btn");
   btn.disabled = true;
   btn.textContent = "⏳ 가져오는 중...";
   
+  closeFetchResult();
+  
+  // ★ 1순위: GitHub data.json (가장 안정적)
+  try {
+    showProgress("GitHub data.json 가져오는 중...");
+    const data = await fetchDataJson();
+    
+    // 14개 입력값 적용
+    const fields = ["spx", "spx_high", "spx_ma200", "ndx", "ndx_high",
+                    "vix", "vix_3m", "vix_3m_ago", "fg", "fg_1m_ago",
+                    "rsi_w", "hy", "hy_6m_ago", "yc"];
+    const items = [];
+    fields.forEach(k => {
+      if (data[k] !== null && data[k] !== undefined) {
+        state[k] = data[k];
+        items.push({ name: k, success: true, value: data[k] });
+      } else {
+        items.push({ name: k, success: false });
+      }
+    });
+    
+    saveState();
+    renderInputs();
+    render();
+    
+    hideProgress();
+    
+    // 결과 패널 표시 (data.json 정보 포함)
+    const ts = data.timestamp ? data.timestamp.slice(0, 16).replace("T", " ") : "";
+    const panel = document.getElementById("fetch-result");
+    document.getElementById("fetch-result-title-text").textContent = 
+      `✅ GitHub data.json (${ts})`;
+    
+    const list = document.getElementById("fetch-result-list");
+    list.innerHTML = items.map(i => `
+      <div class="fetch-item ${i.success ? 'success' : 'fail'}">
+        <span>${i.success ? '✓' : '✗'} ${i.name}</span>
+        <span style="opacity:0.7;">${i.success ? i.value : '-'}</span>
+      </div>
+    `).join('');
+    
+    document.getElementById("fetch-result-errors").style.display = "none";
+    panel.classList.add("show");
+    
+    btn.disabled = false;
+    btn.textContent = "🔄 자동 가져오기";
+    return;
+  } catch (e) {
+    console.warn("data.json 실패, proxy fallback:", e);
+    showProgress(`data.json 실패 (${e.message}), proxy로 시도...`);
+    await sleep(1500);
+  }
+  
+  // ★ 2순위: 기존 proxy 방식 fallback
+  const fredKey = localStorage.getItem("fred_key");
+  if (!fredKey) {
+    hideProgress();
+    alert("⚙️ GitHub data.json도 실패했고 FRED Key도 없습니다.\n설정에서 GitHub 사용자명/저장소를 확인하거나 FRED Key를 입력하세요.");
+    openSettings();
+    btn.disabled = false;
+    btn.textContent = "🔄 자동 가져오기";
+    return;
+  }
+  
   const updates = {};
   const errors = [];
+  const items = [];
   
   // 1. F&G
   try {
@@ -975,42 +1181,73 @@ async function fetchAllData() {
     const fg = await fetchFearGreed();
     updates.fg = fg.current;
     updates.fg_1m_ago = fg.month_ago;
-  } catch (e) { errors.push(`F&G: ${e.message}`); }
+    items.push({ name: "F&G", success: true, value: fg.current });
+  } catch (e) {
+    errors.push(`F&G: ${e.message}`);
+    items.push({ name: "F&G", success: false });
+  }
   
-  // 2. SPX
+  // 2. SPX + RSI
   try {
     showProgress("S&P 500 가져오는 중...");
     const spx = await fetchStooq("^spx");
     updates.spx = Math.round(spx.current);
     updates.spx_high = Math.round(spx.high52w);
     updates.spx_ma200 = Math.round(spx.ma200);
+    items.push({ name: "S&P 500", success: true, value: Math.round(spx.current) });
     
-    // 주간 RSI
-    const weekly = [];
-    for (let i = spx.weekly_data.length - 1; i >= 0; i -= 5) {
-      weekly.unshift(spx.weekly_data[i].close);
-      if (weekly.length >= 30) break;
+    try {
+      const weekly = [];
+      for (let i = spx.weekly_data.length - 1; i >= 0; i -= 5) {
+        weekly.unshift(spx.weekly_data[i].close);
+        if (weekly.length >= 30) break;
+      }
+      const rsi = calcRSI(weekly, 14);
+      if (rsi !== null) {
+        updates.rsi_w = Math.round(rsi * 10) / 10;
+        items.push({ name: "RSI(W)", success: true, value: updates.rsi_w });
+      } else {
+        items.push({ name: "RSI(W)", success: false });
+      }
+    } catch (e) {
+      items.push({ name: "RSI(W)", success: false });
     }
-    const rsi = calcRSI(weekly, 14);
-    if (rsi !== null) updates.rsi_w = Math.round(rsi * 10) / 10;
-  } catch (e) { errors.push(`SPX: ${e.message}`); }
+  } catch (e) {
+    errors.push(`SPX: ${e.message}`);
+    items.push({ name: "S&P 500", success: false });
+    items.push({ name: "RSI(W)", success: false });
+  }
   
-  // 3. NDX (NASDAQ Composite)
+  await sleep(500);
+  
+  // 3. NDX
   try {
     showProgress("NASDAQ 가져오는 중...");
-    const ndx = await fetchStooq("^ndq");  // Stooq는 ^ndq 사용
-    updates.ndx = Math.round(ndx.current);
-    updates.ndx_high = Math.round(ndx.high52w);
-  } catch (e) { 
-    // 대안: ^ixic 시도
-    try {
-      const ndx = await fetchStooq("^ixic");
+    let ndx = null;
+    const NDX_SYMBOLS = ["^ndq", "^ixic", "^ndx", "^nasdaq"];
+    let ndxErrors = [];
+    for (const sym of NDX_SYMBOLS) {
+      try {
+        ndx = await fetchStooq(sym);
+        if (ndx) break;
+      } catch (e) {
+        ndxErrors.push(`${sym}: ${e.message}`);
+        await sleep(300);
+      }
+    }
+    if (ndx) {
       updates.ndx = Math.round(ndx.current);
       updates.ndx_high = Math.round(ndx.high52w);
-    } catch (e2) {
-      errors.push(`NDX: ${e.message}`);
+      items.push({ name: "NASDAQ", success: true, value: Math.round(ndx.current) });
+    } else {
+      throw new Error(`모든 심볼 실패: ${ndxErrors.join("; ")}`);
     }
+  } catch (e) {
+    errors.push(`NDX: ${e.message}`);
+    items.push({ name: "NASDAQ", success: false });
   }
+  
+  await sleep(500);
   
   // 4. VIX
   try {
@@ -1019,41 +1256,48 @@ async function fetchAllData() {
     updates.vix = Math.round(vix.current * 10) / 10;
     updates.vix_3m = Math.round(vix.avg_3m * 10) / 10;
     updates.vix_3m_ago = Math.round(vix.value_3m_ago * 10) / 10;
-  } catch (e) { errors.push(`VIX: ${e.message}`); }
+    items.push({ name: "VIX", success: true, value: updates.vix });
+  } catch (e) {
+    errors.push(`VIX: ${e.message}`);
+    items.push({ name: "VIX", success: false });
+  }
   
-  // 5. HY Spread (FRED)
+  await sleep(500);
+  
+  // 5. HY Spread
   try {
     showProgress("HY Spread 가져오는 중...");
     const hy = await fetchFRED("BAMLH0A0HYM2", fredKey);
-    updates.hy = Math.round(hy.current * 100);  // % → bps
+    updates.hy = Math.round(hy.current * 100);
     updates.hy_6m_ago = Math.round(hy.value_6m_ago * 100);
-  } catch (e) { errors.push(`HY: ${e.message}`); }
+    items.push({ name: "HY Spread", success: true, value: updates.hy + "bp" });
+  } catch (e) {
+    errors.push(`HY: ${e.message}`);
+    items.push({ name: "HY Spread", success: false });
+  }
   
-  // 6. Yield (FRED)
+  // 6. Yield Curve
   try {
     showProgress("Yield Curve 가져오는 중...");
     const dgs10 = await fetchFRED("DGS10", fredKey);
     const dgs2 = await fetchFRED("DGS2", fredKey);
     updates.yc = Math.round((dgs10.current - dgs2.current) * 100) / 100;
-  } catch (e) { errors.push(`Yield: ${e.message}`); }
+    items.push({ name: "2y/10y", success: true, value: (updates.yc > 0 ? "+" : "") + updates.yc + "%" });
+  } catch (e) {
+    errors.push(`Yield: ${e.message}`);
+    items.push({ name: "2y/10y", success: false });
+  }
   
-  // 적용
   if (Object.keys(updates).length > 0) {
     Object.assign(state, updates);
     saveState();
     renderInputs();
     render();
-    
-    if (errors.length === 0) {
-      showProgress("✅ 모든 데이터 갱신 완료!");
-    } else {
-      showProgress(`⚠️ 일부 실패 (${errors.length}건)`);
-    }
-  } else {
-    showProgress("❌ 모두 실패");
   }
   
-  setTimeout(hideProgress, 2500);
+  hideProgress();
+  showFetchResult(items, errors);
+  
   btn.disabled = false;
   btn.textContent = "🔄 자동 가져오기";
   
