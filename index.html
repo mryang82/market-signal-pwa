@@ -214,6 +214,81 @@ body {
 @media (min-width: 480px) {
   .input-grid { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* AUTO FETCH UI */
+.action-bar {
+  display: flex; gap: 6px; margin-bottom: 14px;
+}
+.fetch-btn {
+  flex: 1; padding: 12px;
+  background: linear-gradient(135deg, #1E6FEB, #8957E5);
+  color: white; border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.fetch-btn:active { transform: scale(0.98); }
+.fetch-btn:disabled { opacity: 0.5; cursor: wait; }
+.settings-btn {
+  padding: 12px 14px; background: #1A2230;
+  border: 1px solid #222B3D; color: #E6EDF3;
+  border-radius: 10px; font-size: 16px; cursor: pointer;
+}
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #161B22; border: 1px solid #222B3D;
+  border-radius: 14px; padding: 20px; max-width: 400px; width: 100%;
+}
+.modal h3 { margin: 0 0 12px; font-size: 16px; }
+.modal label { font-size: 11px; color: #8B949E; display: block; margin: 12px 0 4px; font-weight: 600; }
+.modal input {
+  width: 100%; background: #0D1117; border: 1px solid #222B3D;
+  color: #E6EDF3; padding: 10px; border-radius: 6px;
+  font-size: 13px; font-family: monospace;
+}
+.modal-help {
+  font-size: 10px; color: #8B949E; margin: 6px 0 16px;
+  line-height: 1.5;
+}
+.modal-help a { color: #1E6FEB; text-decoration: none; }
+.modal-buttons {
+  display: flex; gap: 8px; margin-top: 16px;
+}
+.modal-buttons button {
+  flex: 1; padding: 10px; border: none; border-radius: 6px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.btn-save { background: #1E6FEB; color: white; }
+.btn-cancel { background: #3D4859; color: white; }
+
+/* FETCH PROGRESS */
+.fetch-progress {
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+  background: #161B22; border: 1px solid #1E6FEB;
+  padding: 10px 18px; border-radius: 22px;
+  display: none; align-items: center; gap: 8px;
+  font-size: 12px; z-index: 150;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.fetch-progress.show { display: flex; }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid #1E6FEB; border-top-color: transparent;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fetched-badge {
+  display: inline-block; background: #43A04730; color: #43A047;
+  font-size: 8px; padding: 1px 5px; border-radius: 8px;
+  margin-left: 4px; font-weight: 700;
+}
 </style>
 </head>
 <body>
@@ -229,6 +304,13 @@ body {
   </div>
   
   <div id="signal" class="signal-card"></div>
+  
+  <div class="action-bar">
+    <button class="fetch-btn" id="fetch-btn" onclick="fetchAllData()">
+      🔄 자동 가져오기
+    </button>
+    <button class="settings-btn" onclick="openSettings()">⚙️</button>
+  </div>
   
   <div class="section-title">📋 프리셋 (탭하여 적용)</div>
   <div class="presets" id="presets"></div>
@@ -261,6 +343,32 @@ body {
 <div class="install-prompt" id="install-prompt">
   📱 홈 화면에 추가하여 앱처럼 사용하세요
   <button class="install-close" onclick="closeInstall()">×</button>
+</div>
+
+<!-- 설정 모달 -->
+<div class="modal-overlay" id="settings-modal" onclick="if(event.target===this) closeSettings()">
+  <div class="modal">
+    <h3>⚙️ 설정 — FRED API Key</h3>
+    
+    <label>FRED API Key (32자리)</label>
+    <input type="text" id="fred-key-input" placeholder="a1b2c3d4e5f6..." autocomplete="off">
+    <div class="modal-help">
+      • 무료 발급: <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank">fredaccount.stlouisfed.org/apikeys</a><br>
+      • 본인 기기에만 저장 (localStorage), 서버에 전송 안 됨<br>
+      • HY Spread, 2y/10y Yield 자동 가져오기에 필요
+    </div>
+    
+    <div class="modal-buttons">
+      <button class="btn-save" onclick="saveSettings()">저장</button>
+      <button class="btn-cancel" onclick="closeSettings()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fetch 진행 표시 -->
+<div class="fetch-progress" id="fetch-progress">
+  <div class="spinner"></div>
+  <span id="fetch-text">데이터 가져오는 중...</span>
 </div>
 
 <script>
@@ -720,6 +828,237 @@ function closeInstall() {
   if (deferredPrompt) {
     deferredPrompt.prompt();
     deferredPrompt = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 설정 모달
+// ═══════════════════════════════════════════════════════════════
+function openSettings() {
+  const key = localStorage.getItem("fred_key") || "";
+  document.getElementById("fred-key-input").value = key;
+  document.getElementById("settings-modal").classList.add("show");
+}
+function closeSettings() {
+  document.getElementById("settings-modal").classList.remove("show");
+}
+function saveSettings() {
+  const key = document.getElementById("fred-key-input").value.trim();
+  if (key) {
+    localStorage.setItem("fred_key", key);
+    alert("✅ FRED API Key 저장됨");
+  } else {
+    localStorage.removeItem("fred_key");
+    alert("FRED Key 삭제됨");
+  }
+  closeSettings();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 자동 데이터 수집
+// ═══════════════════════════════════════════════════════════════
+function showProgress(text) {
+  document.getElementById("fetch-text").textContent = text;
+  document.getElementById("fetch-progress").classList.add("show");
+}
+function hideProgress() {
+  document.getElementById("fetch-progress").classList.remove("show");
+}
+
+async function fetchFearGreed() {
+  const r = await fetch('https://api.alternative.me/fng/?limit=30');
+  const data = await r.json();
+  const current = parseInt(data.data[0].value);
+  const idx = Math.min(29, data.data.length - 1);
+  const monthAgo = parseInt(data.data[idx].value);
+  return { current, month_ago: monthAgo };
+}
+
+async function fetchStooq(symbol) {
+  // CORS 우회: corsproxy.io 사용
+  const url = `https://corsproxy.io/?https://stooq.com/q/d/l/?s=${symbol}&i=d`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Stooq ${symbol}: HTTP ${r.status}`);
+  const text = await r.text();
+  
+  // CSV 파싱: Date,Open,High,Low,Close,Volume
+  const lines = text.trim().split('\n');
+  if (lines.length < 200) throw new Error(`${symbol}: 데이터 부족`);
+  
+  const data = lines.slice(1).map(line => {
+    const cols = line.split(',');
+    return { date: cols[0], close: parseFloat(cols[4]) };
+  }).filter(d => !isNaN(d.close));
+  
+  if (data.length < 200) throw new Error(`${symbol}: 유효 데이터 부족`);
+  
+  const latest = data[data.length - 1];
+  const last200 = data.slice(-200);
+  const last252 = data.slice(-Math.min(252, data.length));
+  const last63 = data.slice(-Math.min(63, data.length));
+  
+  return {
+    current: latest.close,
+    ma200: last200.reduce((s, d) => s + d.close, 0) / 200,
+    high52w: Math.max(...last252.map(d => d.close)),
+    avg_3m: last63.reduce((s, d) => s + d.close, 0) / last63.length,
+    value_3m_ago: last63[0].close,
+    weekly_data: data,  // RSI 계산용
+  };
+}
+
+function calcRSI(prices, period = 14) {
+  if (prices.length < period + 1) return null;
+  const recent = prices.slice(-period - 1);
+  let gains = 0, losses = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const diff = recent[i] - recent[i-1];
+    if (diff > 0) gains += diff;
+    else losses -= diff;
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  return 100 - (100 / (1 + avgGain / avgLoss));
+}
+
+async function fetchFRED(seriesId, apiKey) {
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&sort_order=desc&limit=200`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`FRED ${seriesId}: HTTP ${r.status}`);
+  const data = await r.json();
+  
+  if (!data.observations) throw new Error(`FRED ${seriesId}: 응답 형식 오류`);
+  
+  const obs = data.observations
+    .map(o => ({ date: o.date, value: parseFloat(o.value) }))
+    .filter(o => !isNaN(o.value));
+  
+  if (obs.length === 0) throw new Error(`FRED ${seriesId}: 유효 데이터 없음`);
+  
+  const current = obs[0].value;
+  
+  // 6개월 전 (대략)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  let value_6m_ago = current;
+  let minDiff = Infinity;
+  for (const o of obs) {
+    const diff = Math.abs(new Date(o.date) - sixMonthsAgo);
+    if (diff < minDiff) {
+      minDiff = diff;
+      value_6m_ago = o.value;
+    }
+  }
+  
+  return { current, value_6m_ago };
+}
+
+async function fetchAllData() {
+  const fredKey = localStorage.getItem("fred_key");
+  if (!fredKey) {
+    alert("⚙️ 먼저 FRED API Key를 설정하세요");
+    openSettings();
+    return;
+  }
+  
+  const btn = document.getElementById("fetch-btn");
+  btn.disabled = true;
+  btn.textContent = "⏳ 가져오는 중...";
+  
+  const updates = {};
+  const errors = [];
+  
+  // 1. F&G
+  try {
+    showProgress("Fear & Greed 가져오는 중...");
+    const fg = await fetchFearGreed();
+    updates.fg = fg.current;
+    updates.fg_1m_ago = fg.month_ago;
+  } catch (e) { errors.push(`F&G: ${e.message}`); }
+  
+  // 2. SPX
+  try {
+    showProgress("S&P 500 가져오는 중...");
+    const spx = await fetchStooq("^spx");
+    updates.spx = Math.round(spx.current);
+    updates.spx_high = Math.round(spx.high52w);
+    updates.spx_ma200 = Math.round(spx.ma200);
+    
+    // 주간 RSI
+    const weekly = [];
+    for (let i = spx.weekly_data.length - 1; i >= 0; i -= 5) {
+      weekly.unshift(spx.weekly_data[i].close);
+      if (weekly.length >= 30) break;
+    }
+    const rsi = calcRSI(weekly, 14);
+    if (rsi !== null) updates.rsi_w = Math.round(rsi * 10) / 10;
+  } catch (e) { errors.push(`SPX: ${e.message}`); }
+  
+  // 3. NDX (NASDAQ Composite)
+  try {
+    showProgress("NASDAQ 가져오는 중...");
+    const ndx = await fetchStooq("^ndq");  // Stooq는 ^ndq 사용
+    updates.ndx = Math.round(ndx.current);
+    updates.ndx_high = Math.round(ndx.high52w);
+  } catch (e) { 
+    // 대안: ^ixic 시도
+    try {
+      const ndx = await fetchStooq("^ixic");
+      updates.ndx = Math.round(ndx.current);
+      updates.ndx_high = Math.round(ndx.high52w);
+    } catch (e2) {
+      errors.push(`NDX: ${e.message}`);
+    }
+  }
+  
+  // 4. VIX
+  try {
+    showProgress("VIX 가져오는 중...");
+    const vix = await fetchStooq("^vix");
+    updates.vix = Math.round(vix.current * 10) / 10;
+    updates.vix_3m = Math.round(vix.avg_3m * 10) / 10;
+    updates.vix_3m_ago = Math.round(vix.value_3m_ago * 10) / 10;
+  } catch (e) { errors.push(`VIX: ${e.message}`); }
+  
+  // 5. HY Spread (FRED)
+  try {
+    showProgress("HY Spread 가져오는 중...");
+    const hy = await fetchFRED("BAMLH0A0HYM2", fredKey);
+    updates.hy = Math.round(hy.current * 100);  // % → bps
+    updates.hy_6m_ago = Math.round(hy.value_6m_ago * 100);
+  } catch (e) { errors.push(`HY: ${e.message}`); }
+  
+  // 6. Yield (FRED)
+  try {
+    showProgress("Yield Curve 가져오는 중...");
+    const dgs10 = await fetchFRED("DGS10", fredKey);
+    const dgs2 = await fetchFRED("DGS2", fredKey);
+    updates.yc = Math.round((dgs10.current - dgs2.current) * 100) / 100;
+  } catch (e) { errors.push(`Yield: ${e.message}`); }
+  
+  // 적용
+  if (Object.keys(updates).length > 0) {
+    Object.assign(state, updates);
+    saveState();
+    renderInputs();
+    render();
+    
+    if (errors.length === 0) {
+      showProgress("✅ 모든 데이터 갱신 완료!");
+    } else {
+      showProgress(`⚠️ 일부 실패 (${errors.length}건)`);
+    }
+  } else {
+    showProgress("❌ 모두 실패");
+  }
+  
+  setTimeout(hideProgress, 2500);
+  btn.disabled = false;
+  btn.textContent = "🔄 자동 가져오기";
+  
+  if (errors.length > 0) {
+    console.warn("Fetch errors:", errors);
   }
 }
 
