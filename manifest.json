@@ -1,13 +1,13 @@
 {
-  "name": "Market Signal v8",
-  "short_name": "MarketSignal",
-  "description": "v8 알고리즘 기반 시장 신호 모니터링",
-  "start_url": "./",
+  "name": "Market Signal v12",
+  "short_name": "Signal v12",
+  "description": "통합 시장 신호 모니터 (장기 v8 + 단기 v2 + 컨텍스트)",
+  "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0D1117",
-  "theme_color": "#0D1117",
-  "categories": ["finance", "productivity"],
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "scope": ".",
   "icons": [
     {
       "src": "icon-192.png",
