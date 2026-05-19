@@ -3,1319 +3,1054 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0D1117">
+<meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Market Signal">
-<title>Market Signal v8</title>
+<meta name="apple-mobile-web-app-title" content="Signal v12">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<title>Market Signal v12</title>
 <style>
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* ──────────────────────────────────────────────────────────
+   Reset + Base
+   ────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overscroll-behavior-y: contain; }
 body {
-  margin: 0; padding: 0;
-  background: #0D1117; color: #E6EDF3;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px; line-height: 1.5;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  color: #e2e8f0;
+  font-size: 15px;
+  line-height: 1.45;
+  min-height: 100vh;
+  padding-bottom: 88px;
+  -webkit-font-smoothing: antialiased;
 }
-.app { max-width: 600px; margin: 0 auto; padding: 12px; }
 
-/* HEADER */
-.header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 4px 14px; position: sticky; top: 0;
-  background: #0D1117; z-index: 10; border-bottom: 1px solid #222B3D;
-  margin-bottom: 14px;
+/* ──────────────────────────────────────────────────────────
+   Header
+   ────────────────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 90;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
-.logo {
+.header-row { display: flex; justify-content: space-between; align-items: center; }
+.title { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
+.title .v { color: #64748b; font-weight: 500; font-size: 13px; margin-left: 4px; }
+.actions { display: flex; gap: 8px; }
+.icon-btn {
   width: 36px; height: 36px; border-radius: 10px;
-  background: linear-gradient(135deg, #1E6FEB, #8957E5);
+  background: rgba(148, 163, 184, 0.1);
+  color: #cbd5e1; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 16px; transition: all 0.15s;
 }
-.title { font-weight: 700; font-size: 15px; }
-.subtitle { font-size: 10px; color: #8B949E; margin-top: 1px; }
-.reset-btn {
-  margin-left: auto; background: #3D4859; border: none;
-  color: #fff; border-radius: 6px; padding: 6px 12px;
-  font-size: 11px; cursor: pointer;
-}
+.icon-btn:active { transform: scale(0.92); background: rgba(148, 163, 184, 0.2); }
+.last-update { font-size: 11px; color: #64748b; margin-top: 4px; }
+.last-update.fresh { color: #10b981; }
+.last-update.stale { color: #f59e0b; }
+.last-update.error { color: #ef4444; }
 
-/* SIGNAL CARD */
-.signal-card {
-  border-radius: 14px; padding: 16px;
-  border-left: 4px solid; margin-bottom: 14px;
-  background: rgba(0,0,0,0.4);
+/* ──────────────────────────────────────────────────────────
+   Tabs
+   ────────────────────────────────────────────────────────── */
+.tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
 }
+.tab {
+  background: none; border: none; cursor: pointer;
+  padding: 8px 4px; color: #64748b;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500;
+  transition: color 0.15s;
+}
+.tab .tab-icon { font-size: 20px; line-height: 1; }
+.tab.active { color: #e2e8f0; }
+.tab.active .tab-icon { transform: scale(1.05); }
+.tab-page { display: none; padding: 16px; max-width: 720px; margin: 0 auto; }
+.tab-page.active { display: block; }
 
-/* GAUGE */
-.gauge-container {
-  position: relative; width: 100%; max-width: 360px;
-  margin: 0 auto 12px; padding-top: 8px;
-}
-.gauge-svg { width: 100%; height: auto; display: block; }
-.gauge-value {
-  position: absolute; left: 50%; top: 62%;
-  transform: translate(-50%, -50%);
-  text-align: center; pointer-events: none;
-}
-.gauge-score-num {
-  font-size: 38px; font-weight: 900;
-  font-family: 'SF Mono', monospace; line-height: 1;
-}
-.gauge-score-label {
-  font-size: 9px; color: #8B949E;
-  letter-spacing: 1px; margin-top: 2px;
-  text-transform: uppercase; font-weight: 600;
-}
-.level-banner {
-  text-align: center; padding: 10px 12px;
-  border-radius: 10px; margin-bottom: 12px;
-  border: 2px solid;
-}
-.level-name {
-  font-size: 22px; font-weight: 800;
-  letter-spacing: 0.5px; line-height: 1;
-}
-.level-stage {
-  font-size: 10px; color: #8B949E;
-  margin-top: 4px; letter-spacing: 0.8px;
-  text-transform: uppercase; font-weight: 600;
-}
-.gauge-zones {
-  display: flex; gap: 2px; margin: 8px 0 4px;
-  font-size: 8px; color: #5A6678; font-weight: 600;
-}
-.gauge-zones span { flex: 1; text-align: center; }
-.prob-box {
-  background: rgba(0,0,0,0.4);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px; padding: 10px 12px; margin-top: 12px;
-}
-.prob-label { font-size: 11px; color: #8B949E; }
-.prob-value { font-size: 22px; font-weight: 800; font-family: monospace; }
-.prob-tag { font-size: 10px; color: #8B949E; font-style: italic; margin-top: 2px; }
-
-/* MID-DECLINE WARNING */
-.warning-box {
-  background: #1A0800; border: 1px solid #D29922;
-  border-radius: 8px; padding: 10px 12px; margin-top: 10px;
-}
-.warning-title {
-  font-size: 11px; font-weight: 700; color: #D29922;
-  margin-bottom: 4px;
-}
-.warning-text { font-size: 10px; color: #8B949E; }
-
-/* PRESETS */
-.section-title {
-  font-size: 11px; color: #8B949E; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.8px;
-  margin-bottom: 8px; padding: 0 4px;
-}
-.presets {
-  display: flex; gap: 6px; overflow-x: auto;
-  padding: 0 4px 12px; scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.presets::-webkit-scrollbar { display: none; }
-.preset-btn {
-  flex-shrink: 0; padding: 8px 14px; border-radius: 18px;
-  background: #1A2230; border: 1px solid #222B3D; color: #E6EDF3;
-  font-size: 11px; font-weight: 500; cursor: pointer;
-  white-space: nowrap;
-}
-.preset-btn:active { transform: scale(0.96); }
-
-/* INPUT GRID */
-.input-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+/* ──────────────────────────────────────────────────────────
+   Cards
+   ────────────────────────────────────────────────────────── */
+.card {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  padding: 16px;
   margin-bottom: 14px;
+  backdrop-filter: blur(8px);
 }
-.input-card {
-  background: #1A2230; border: 1px solid #222B3D;
-  border-radius: 10px; padding: 10px;
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center;
 }
-.input-label {
-  font-size: 10px; color: #8B949E; font-weight: 600;
-  display: flex; justify-content: space-between; margin-bottom: 4px;
-}
-.input-hint { color: #3D4859; font-size: 9px; }
-.input-row { display: flex; align-items: center; gap: 4px; }
-.num-input {
-  flex: 1; background: #0D1117; border: 1px solid #222B3D;
-  color: #E6EDF3; padding: 8px 10px; border-radius: 6px;
-  font-size: 16px; font-family: monospace; font-weight: 600;
-  width: 100%; min-width: 0;
-}
-.num-input:focus { outline: 2px solid #1E6FEB; }
+.card-hint { font-size: 11px; color: #64748b; font-weight: 400; text-transform: none; letter-spacing: 0; }
 
-/* SCORE BREAKDOWN */
-.breakdown {
-  background: #161B22; border: 1px solid #222B3D;
-  border-radius: 12px; padding: 14px; margin-bottom: 14px;
+/* ──────────────────────────────────────────────────────────
+   Status Big Display
+   ────────────────────────────────────────────────────────── */
+.status-big {
+  text-align: center;
+  padding: 20px 16px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+  position: relative; overflow: hidden;
 }
-.breakdown-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-  font-family: monospace; font-size: 11px;
+.status-big::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at center, currentColor 0%, transparent 70%);
+  opacity: 0.08;
 }
-.score-item {
-  background: #1A2230; padding: 7px 10px; border-radius: 5px;
-  border: 1px solid #222B3D; display: flex; justify-content: space-between;
-}
-.score-key { color: #8B949E; }
-.score-val { font-weight: 700; }
-.score-val.pos { color: #3FB950; }
-.score-val.neg { color: #F85149; }
-.score-val.zero { color: #8B949E; }
-.total-score {
-  margin-top: 10px; padding-top: 10px;
-  border-top: 1px solid #222B3D;
-  display: flex; justify-content: space-between; font-size: 12px;
-}
-.total-val { font-family: monospace; font-weight: 800; font-size: 16px; }
+.status-emoji { font-size: 44px; margin-bottom: 8px; }
+.status-level { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.status-sub { font-size: 13px; color: #94a3b8; margin-top: 6px; }
 
-/* CONFIRMATIONS */
-.conf-section { margin-top: 10px; padding: 10px; background: #161B22; border-radius: 8px; }
-.conf-line { font-size: 11px; margin: 2px 0; }
-.conf-line.sell { color: #F85149; }
-.conf-line.buy { color: #3FB950; }
-.conf-line.regime { color: #1E6FEB; }
+.level-CRASH_BUY, .level-PANIC_BUY { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.level-STRONG_BUY, .level-SHIFT_UP { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+.level-BUY, .level-CAUTION_UP { background: rgba(132, 204, 22, 0.1); color: #84cc16; }
+.level-WATCH { background: rgba(250, 204, 21, 0.1); color: #facc15; }
+.level-NEUTRAL { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; }
+.level-CAUTION { background: rgba(251, 146, 60, 0.12); color: #fb923c; }
+.level-CAUTION_DOWN { background: rgba(249, 115, 22, 0.12); color: #f97316; }
+.level-WARNING { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.level-SHIFT_DOWN { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.level-STRONG_SELL { background: rgba(220, 38, 38, 0.18); color: #dc2626; }
 
-/* USAGE */
-.usage {
-  background: #161B22; border: 1px solid #222B3D;
-  border-radius: 12px; padding: 14px;
-  font-size: 11px; color: #8B949E; line-height: 1.7;
+/* ──────────────────────────────────────────────────────────
+   Conflict Banner
+   ────────────────────────────────────────────────────────── */
+.conflict-banner {
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  display: flex; align-items: flex-start; gap: 12px;
+  border: 1px solid;
 }
-.usage strong { color: #E6EDF3; }
-.usage-title { font-weight: 700; color: #E6EDF3; margin-bottom: 6px; font-size: 12px; }
+.conflict-banner .cb-icon { font-size: 22px; flex-shrink: 0; }
+.conflict-banner .cb-body { flex: 1; }
+.conflict-banner .cb-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.conflict-banner .cb-desc { font-size: 12px; color: #cbd5e1; line-height: 1.4; }
+.conflict-good { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); }
+.conflict-good .cb-title { color: #10b981; }
+.conflict-warn { background: rgba(251, 146, 60, 0.08); border-color: rgba(251, 146, 60, 0.3); }
+.conflict-warn .cb-title { color: #fb923c; }
+.conflict-danger { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
+.conflict-danger .cb-title { color: #ef4444; }
+.conflict-info { background: rgba(148, 163, 184, 0.06); border-color: rgba(148, 163, 184, 0.2); }
+.conflict-info .cb-title { color: #cbd5e1; }
 
-/* INSTALL PROMPT */
-.install-prompt {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: #1E6FEB; color: #fff; padding: 12px;
-  text-align: center; font-size: 13px; font-weight: 600;
-  cursor: pointer; display: none; z-index: 100;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+/* ──────────────────────────────────────────────────────────
+   Summary 2-column
+   ────────────────────────────────────────────────────────── */
+.summary-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 16px;
 }
-.install-prompt.show { display: block; animation: slideUp 0.3s; }
-@keyframes slideUp { from { transform: translateY(100%); } }
-.install-close {
-  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-  background: rgba(0,0,0,0.3); border: none; color: #fff;
-  border-radius: 50%; width: 24px; height: 24px;
-  font-size: 14px; cursor: pointer;
+.summary-cell {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 14px;
+  padding: 12px;
+  cursor: pointer;
 }
+.summary-cell .sc-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.summary-cell .sc-level { font-size: 20px; font-weight: 800; margin-top: 6px; letter-spacing: -0.5px; }
+.summary-cell .sc-meta { font-size: 11px; color: #94a3b8; margin-top: 4px; }
 
-@media (min-width: 480px) {
-  .input-grid { grid-template-columns: 1fr 1fr 1fr; }
+/* ──────────────────────────────────────────────────────────
+   Triggers list
+   ────────────────────────────────────────────────────────── */
+.trigger-list { display: flex; flex-direction: column; gap: 8px; }
+.trigger-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  font-size: 13px;
 }
+.trigger-pill { 
+  flex-shrink: 0;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(148, 163, 184, 0.15); color: #94a3b8;
+}
+.trigger-pill.buy { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.trigger-pill.sell { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.trigger-name { flex: 1; color: #cbd5e1; }
+.trigger-weight { font-size: 11px; color: #64748b; font-weight: 600; }
+.empty-state { text-align: center; padding: 24px 16px; color: #64748b; font-size: 13px; }
 
-/* AUTO FETCH UI */
-.action-bar {
-  display: flex; gap: 6px; margin-bottom: 14px;
+/* ──────────────────────────────────────────────────────────
+   Indicators
+   ────────────────────────────────────────────────────────── */
+.indicator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.indicator-item {
+  background: rgba(15, 23, 42, 0.4);
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.08);
 }
-.fetch-btn {
-  flex: 1; padding: 12px;
-  background: linear-gradient(135deg, #1E6FEB, #8957E5);
-  color: white; border: none; border-radius: 10px;
-  font-size: 13px; font-weight: 700; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.fetch-btn:active { transform: scale(0.98); }
-.fetch-btn:disabled { opacity: 0.5; cursor: wait; }
-.settings-btn {
-  padding: 12px 14px; background: #1A2230;
-  border: 1px solid #222B3D; color: #E6EDF3;
-  border-radius: 10px; font-size: 16px; cursor: pointer;
-}
+.indicator-label { font-size: 11px; color: #64748b; }
+.indicator-value { font-size: 16px; font-weight: 700; color: #e2e8f0; margin-top: 2px; }
+.indicator-value.pos { color: #22c55e; }
+.indicator-value.neg { color: #ef4444; }
+.indicator-value.warn { color: #fb923c; }
 
-/* MODAL */
+/* ──────────────────────────────────────────────────────────
+   Pillars (단기)
+   ────────────────────────────────────────────────────────── */
+.pillar-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pillar-cell {
+  text-align: center;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 12px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.08);
+}
+.pillar-letter { font-size: 14px; font-weight: 800; color: #94a3b8; margin-bottom: 4px; }
+.pillar-score { font-size: 20px; font-weight: 800; }
+.pillar-score.s0 { color: #64748b; }
+.pillar-score.s1 { color: #facc15; }
+.pillar-score.s2 { color: #fb923c; }
+.pillar-score.s3 { color: #ef4444; }
+.pillar-label { font-size: 9px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* ──────────────────────────────────────────────────────────
+   Alerts (컨텍스트)
+   ────────────────────────────────────────────────────────── */
+.alert-item {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border: 1px solid;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.alert-icon { font-size: 22px; flex-shrink: 0; }
+.alert-body { flex: 1; }
+.alert-title { font-weight: 700; font-size: 14px; }
+.alert-desc { font-size: 12px; color: #cbd5e1; margin-top: 3px; }
+.alert-backtest { font-size: 11px; color: #94a3b8; margin-top: 6px; font-style: italic; }
+.alert-high { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
+.alert-high .alert-title { color: #ef4444; }
+.alert-medium { background: rgba(251, 146, 60, 0.08); border-color: rgba(251, 146, 60, 0.3); }
+.alert-medium .alert-title { color: #fb923c; }
+
+/* ──────────────────────────────────────────────────────────
+   Backtest table
+   ────────────────────────────────────────────────────────── */
+.bt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bt-table th, .bt-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(148, 163, 184, 0.08); }
+.bt-table th { color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.bt-table tr.current { background: rgba(34, 197, 94, 0.08); }
+.bt-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ──────────────────────────────────────────────────────────
+   Settings modal
+   ────────────────────────────────────────────────────────── */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-  display: none; align-items: center; justify-content: center;
-  z-index: 200; padding: 20px;
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
+  z-index: 200; display: none; align-items: flex-end; justify-content: center;
+  backdrop-filter: blur(8px);
 }
 .modal-overlay.show { display: flex; }
 .modal {
-  background: #161B22; border: 1px solid #222B3D;
-  border-radius: 14px; padding: 20px; max-width: 400px; width: 100%;
+  background: #0f172a; border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  border: 1px solid rgba(148, 163, 184, 0.15); border-bottom: none;
 }
-.modal h3 { margin: 0 0 12px; font-size: 16px; }
-.modal label { font-size: 11px; color: #8B949E; display: block; margin: 12px 0 4px; font-weight: 600; }
+.modal h2 { font-size: 18px; margin-bottom: 16px; }
+.modal label { display: block; margin-bottom: 12px; font-size: 13px; color: #94a3b8; }
+.modal label .lbl-text { display: block; margin-bottom: 4px; }
 .modal input {
-  width: 100%; background: #0D1117; border: 1px solid #222B3D;
-  color: #E6EDF3; padding: 10px; border-radius: 6px;
-  font-size: 13px; font-family: monospace;
+  width: 100%; padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px; color: #e2e8f0; font-size: 14px;
 }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.modal-actions button {
+  flex: 1; padding: 12px; border-radius: 10px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-primary { background: #2563eb; color: white; }
+.btn-secondary { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
 .modal-help {
-  font-size: 10px; color: #8B949E; margin: 6px 0 16px;
+  font-size: 12px; color: #64748b; margin-top: 12px; padding: 10px;
+  background: rgba(15, 23, 42, 0.5); border-radius: 10px;
   line-height: 1.5;
 }
-.modal-help a { color: #1E6FEB; text-decoration: none; }
-.modal-buttons {
-  display: flex; gap: 8px; margin-top: 16px;
-}
-.modal-buttons button {
-  flex: 1; padding: 10px; border: none; border-radius: 6px;
-  font-size: 12px; font-weight: 600; cursor: pointer;
-}
-.btn-save { background: #1E6FEB; color: white; }
-.btn-cancel { background: #3D4859; color: white; }
 
-/* FETCH PROGRESS */
-.fetch-progress {
-  position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
-  background: #161B22; border: 1px solid #1E6FEB;
-  padding: 10px 18px; border-radius: 22px;
-  display: none; align-items: center; gap: 8px;
-  font-size: 12px; z-index: 150;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-}
-.fetch-progress.show { display: flex; }
+/* ──────────────────────────────────────────────────────────
+   Loading
+   ────────────────────────────────────────────────────────── */
+.loading { text-align: center; padding: 60px 16px; color: #64748b; }
 .spinner {
-  width: 14px; height: 14px;
-  border: 2px solid #1E6FEB; border-top-color: transparent;
-  border-radius: 50%; animation: spin 0.8s linear infinite;
+  width: 32px; height: 32px;
+  border: 3px solid rgba(148, 163, 184, 0.15);
+  border-top-color: #60a5fa; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 12px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.fetched-badge {
-  display: inline-block; background: #43A04730; color: #43A047;
-  font-size: 8px; padding: 1px 5px; border-radius: 8px;
-  margin-left: 4px; font-weight: 700;
+.error-msg {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 14px; border-radius: 10px;
+  color: #fca5a5; font-size: 13px;
+  margin-bottom: 14px;
 }
-
-/* FETCH RESULT PANEL */
-.fetch-result {
-  background: #161B22; border: 1px solid #222B3D;
-  border-radius: 10px; padding: 12px; margin-bottom: 14px;
-  display: none;
-}
-.fetch-result.show { display: block; }
-.fetch-result-title {
-  font-size: 11px; font-weight: 700; margin-bottom: 8px;
-  display: flex; justify-content: space-between; align-items: center;
-}
-.fetch-result-close {
-  background: transparent; border: none; color: #8B949E;
-  font-size: 16px; cursor: pointer; padding: 0;
-}
-.fetch-item-list {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
-  font-size: 10px; font-family: monospace;
-}
-.fetch-item {
-  padding: 5px 8px; border-radius: 4px;
-  display: flex; justify-content: space-between; align-items: center;
-}
-.fetch-item.success {
-  background: #43A04715; color: #43A047;
-}
-.fetch-item.fail {
-  background: #F8514915; color: #F85149;
-}
-.fetch-item-error {
-  font-size: 9px; color: #F85149; margin-top: 6px;
-  padding: 6px 8px; background: #F8514908; border-radius: 4px;
-  word-break: break-all; line-height: 1.5;
-}
+.section-title { font-size: 13px; font-weight: 700; color: #cbd5e1; margin: 18px 0 10px; }
+.section-title:first-child { margin-top: 0; }
 </style>
 </head>
 <body>
-<div class="app">
-  
-  <div class="header">
-    <div class="logo">⚡</div>
+
+<!-- ────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-row">
     <div>
-      <div class="title">Market Signal v8</div>
-      <div class="subtitle">즉시 반응 · 입력 시 자동 재계산</div>
+      <div class="title">Signal Monitor <span class="v">v12</span></div>
+      <div id="last-update" class="last-update">데이터 로딩 중...</div>
     </div>
-    <button class="reset-btn" onclick="reset()">초기화</button>
-  </div>
-  
-  <div id="signal" class="signal-card"></div>
-  
-  <div class="action-bar">
-    <button class="fetch-btn" id="fetch-btn" onclick="fetchAllData()">
-      🔄 자동 가져오기
-    </button>
-    <button class="settings-btn" onclick="openSettings()">⚙️</button>
-  </div>
-  
-  <div class="fetch-result" id="fetch-result">
-    <div class="fetch-result-title">
-      <span id="fetch-result-title-text">📊 가져오기 결과</span>
-      <button class="fetch-result-close" onclick="closeFetchResult()">×</button>
-    </div>
-    <div class="fetch-item-list" id="fetch-result-list"></div>
-    <div class="fetch-item-error" id="fetch-result-errors" style="display:none;"></div>
-  </div>
-  
-  <div class="section-title">📋 프리셋 (탭하여 적용)</div>
-  <div class="presets" id="presets"></div>
-  
-  <div class="section-title">📝 입력 지표</div>
-  <div class="input-grid" id="inputs"></div>
-  
-  <div class="breakdown">
-    <div class="section-title" style="padding: 0; margin-bottom: 10px;">📊 점수 분해</div>
-    <div class="breakdown-grid" id="breakdown"></div>
-    <div class="total-score">
-      <span style="color: #8B949E;">가중 종합 점수</span>
-      <span class="total-val" id="total-score">0</span>
+    <div class="actions">
+      <button class="icon-btn" id="refresh-btn" title="새로고침">🔄</button>
+      <button class="icon-btn" id="settings-btn" title="설정">⚙️</button>
     </div>
   </div>
-  
-  <div id="conf-section"></div>
-  
-  <div class="usage">
-    <div class="usage-title">💡 사용법</div>
-    • <strong>프리셋 클릭</strong>: 과거 시점 즉시 재현<br>
-    • <strong>입력 변경</strong>: 신호 즉시 재계산<br>
-    • <strong>홈화면 추가</strong>: 일반 앱처럼 사용 (Safari/Chrome 공유 메뉴)<br>
-    • <strong>오프라인</strong>: 인터넷 없이 작동<br>
-    • <strong>자동 저장</strong>: 마지막 입력값 기억
+</header>
+
+<!-- ────────────────────────────────────────────────────────── -->
+<!-- 메인 탭 -->
+<div class="tab-page active" id="page-main">
+  <div id="main-content" class="loading">
+    <div class="spinner"></div>
+    <div>신호 데이터 로딩 중...</div>
   </div>
-  
 </div>
 
-<div class="install-prompt" id="install-prompt">
-  📱 홈 화면에 추가하여 앱처럼 사용하세요
-  <button class="install-close" onclick="closeInstall()">×</button>
+<!-- 장기 탭 -->
+<div class="tab-page" id="page-long">
+  <div id="long-content" class="loading">
+    <div class="spinner"></div>
+    <div>장기 신호 로딩 중...</div>
+  </div>
 </div>
 
-<!-- 설정 모달 -->
-<div class="modal-overlay" id="settings-modal" onclick="if(event.target===this) closeSettings()">
+<!-- 단기 탭 -->
+<div class="tab-page" id="page-short">
+  <div id="short-content" class="loading">
+    <div class="spinner"></div>
+    <div>단기 신호 로딩 중...</div>
+  </div>
+</div>
+
+<!-- 컨텍스트 탭 -->
+<div class="tab-page" id="page-context">
+  <div id="context-content" class="loading">
+    <div class="spinner"></div>
+    <div>컨텍스트 로딩 중...</div>
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────────────── -->
+<nav class="tab-bar">
+  <button class="tab active" data-page="main">
+    <span class="tab-icon">🏠</span>
+    <span>메인</span>
+  </button>
+  <button class="tab" data-page="long">
+    <span class="tab-icon">📊</span>
+    <span>장기</span>
+  </button>
+  <button class="tab" data-page="short">
+    <span class="tab-icon">⚡</span>
+    <span>단기</span>
+  </button>
+  <button class="tab" data-page="context">
+    <span class="tab-icon">🔍</span>
+    <span>컨텍스트</span>
+  </button>
+</nav>
+
+<!-- ────────────────────────────────────────────────────────── -->
+<!-- Settings modal -->
+<div class="modal-overlay" id="settings-modal">
   <div class="modal">
-    <h3>⚙️ 설정</h3>
-    
-    <label>📊 GitHub 자동화 저장소 (옵션 B - 권장)</label>
-    <input type="text" id="github-user-input" placeholder="GitHub 사용자명 (예: mryang82)" autocomplete="off">
-    <input type="text" id="github-repo-input" placeholder="저장소명 (예: market-signal-monitor-auto)" autocomplete="off" style="margin-top:6px;">
+    <h2>⚙️ 설정</h2>
+    <label>
+      <span class="lbl-text">단기 저장소 사용자명</span>
+      <input type="text" id="cfg-user" placeholder="mryang82">
+    </label>
+    <label>
+      <span class="lbl-text">단기 저장소 이름</span>
+      <input type="text" id="cfg-repo" placeholder="market-signal-monitor-short">
+    </label>
+    <label>
+      <span class="lbl-text">브랜치</span>
+      <input type="text" id="cfg-branch" placeholder="main">
+    </label>
     <div class="modal-help">
-      자동화 저장소가 <strong>Public</strong>이어야 함<br>
-      → data.json을 직접 읽어서 가장 안정적인 방법
+      통합 PWA는 <b>data_unified.json</b>을 fetch합니다.<br>
+      URL: https://raw.githubusercontent.com/[user]/[repo]/[branch]/data_unified.json
     </div>
-    
-    <label style="margin-top: 16px;">🔑 FRED API Key (백업용 - proxy fallback 시)</label>
-    <input type="text" id="fred-key-input" placeholder="a1b2c3d4e5f6..." autocomplete="off">
-    <div class="modal-help">
-      • 무료 발급: <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank">fredaccount.stlouisfed.org/apikeys</a><br>
-      • GitHub 저장소가 작동하면 이건 필요 없음
-    </div>
-    
-    <div class="modal-buttons">
-      <button class="btn-save" onclick="saveSettings()">저장</button>
-      <button class="btn-cancel" onclick="closeSettings()">닫기</button>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeSettings()">취소</button>
+      <button class="btn-primary" onclick="saveSettings()">저장 & 새로고침</button>
     </div>
   </div>
-</div>
-
-<!-- Fetch 진행 표시 -->
-<div class="fetch-progress" id="fetch-progress">
-  <div class="spinner"></div>
-  <span id="fetch-text">데이터 가져오는 중...</span>
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-// v8 알고리즘
-// ═══════════════════════════════════════════════════════════════
+// ──────────────────────────────────────────────────────────
+// 설정
+// ──────────────────────────────────────────────────────────
+const DEFAULT_USER = "mryang82";
+const DEFAULT_REPO = "market-signal-monitor-short";
+const DEFAULT_BRANCH = "main";
 
-const DEFAULT_INPUT = {
-  spx: 5300, spx_high: 5400, spx_ma200: 5100,
-  ndx: 17000, ndx_high: 17500,
-  vix: 18, vix_3m: 17, vix_3m_ago: 16,
-  fg: 55, fg_1m_ago: 50, rsi_w: 60,
-  hy: 320, hy_6m_ago: 350, yc: 0.5,
-};
-
-const INPUT_FIELDS = [
-  { key: "spx", label: "S&P 500 현재", step: 10 },
-  { key: "spx_high", label: "S&P 52주 고점", step: 10, hint: "ddSpx" },
-  { key: "spx_ma200", label: "S&P 200MA", step: 10, hint: "maDist" },
-  { key: "ndx", label: "NASDAQ 현재", step: 10 },
-  { key: "ndx_high", label: "NASDAQ 52주 고점", step: 10, hint: "ddNdx" },
-  { key: "vix", label: "VIX 현재", step: 0.5 },
-  { key: "vix_3m", label: "VIX 3M 평균", step: 0.5 },
-  { key: "vix_3m_ago", label: "VIX 3M 전", step: 0.5, hint: "vixSlope" },
-  { key: "fg", label: "F&G 현재", step: 1 },
-  { key: "fg_1m_ago", label: "F&G 1M 전", step: 1, hint: "fgChange" },
-  { key: "rsi_w", label: "주간 RSI", step: 1 },
-  { key: "hy", label: "HY 스프레드 (bp)", step: 10 },
-  { key: "hy_6m_ago", label: "HY 6M 전 (bp)", step: 10, hint: "hyRoc" },
-  { key: "yc", label: "2y/10y 스프레드 (%)", step: 0.1 },
-];
-
-const PRESETS = {
-  "현재": DEFAULT_INPUT,
-  "🟢 STRONG_BUY 2020.03 COVID": {
-    spx: 2400, spx_high: 3380, spx_ma200: 3100, ndx: 7400, ndx_high: 9750,
-    vix: 60, vix_3m: 30, vix_3m_ago: 14, fg: 8, fg_1m_ago: 65,
-    rsi_w: 28, hy: 1100, hy_6m_ago: 390, yc: 0.6,
-  },
-  "🔴 WARNING 2021.11 정점": {
-    spx: 4700, spx_high: 4720, spx_ma200: 4350, ndx: 16000, ndx_high: 16100,
-    vix: 18, vix_3m: 16, vix_3m_ago: 17, fg: 84, fg_1m_ago: 78,
-    rsi_w: 73, hy: 310, hy_6m_ago: 300, yc: 1.2,
-  },
-  "🚨 CRASH 2008.10 리먼": {
-    spx: 850, spx_high: 1565, spx_ma200: 1300, ndx: 1500, ndx_high: 2860,
-    vix: 89, vix_3m: 50, vix_3m_ago: 22, fg: 5, fg_1m_ago: 30,
-    rsi_w: 22, hy: 1900, hy_6m_ago: 620, yc: 1.5,
-  },
-  "🟡 CAUTION 가상": {
-    spx: 5400, spx_high: 5410, spx_ma200: 4900, ndx: 17500, ndx_high: 17600,
-    vix: 13, vix_3m: 14, vix_3m_ago: 16, fg: 78, fg_1m_ago: 72,
-    rsi_w: 71, hy: 290, hy_6m_ago: 320, yc: 0.3,
-  },
-};
-
-// 점수 함수
-function scoreVix(v, v3m) {
-  if (v >= 50) return 4; if (v >= 40) return 3; if (v >= 30) return 2;
-  if (v >= 20) return 0;
-  if (v <= 12 && v < v3m * 0.85) return -2;
-  if (v <= 14) return -1; return 0;
-}
-function scoreFg(f) {
-  if (f <= 10) return 3; if (f <= 20) return 2; if (f <= 30) return 1;
-  if (f >= 85) return -3; if (f >= 75) return -2; if (f >= 65) return -1;
-  return 0;
-}
-function scoreRsi(r) {
-  if (r <= 30) return 2; if (r <= 35) return 1;
-  if (r >= 75) return -2; if (r >= 70) return -1; return 0;
-}
-function scoreMa(d) {
-  if (d <= -20) return 3; if (d <= -10) return 2; if (d <= -5) return 1;
-  if (d >= 18) return -3; if (d >= 12) return -2; if (d >= 8) return -1;
-  return 0;
-}
-function scoreDd(dd) {
-  if (dd <= -30) return 4; if (dd <= -25) return 3;
-  if (dd <= -15) return 2; if (dd <= -10) return 1; return 0;
-}
-function scoreHy(h) {
-  if (h >= 800) return 3; if (h >= 600) return 2; if (h >= 500) return 1;
-  if (h >= 400) return -1; if (h >= 350) return -1; return 0;
-}
-function scoreYc(s) {
-  if (s < -0.5) return -2; if (s < 0) return -1; if (s < 0.1) return -1; return 0;
-}
-function scoreHyMom(r) {
-  if (r >= 50) return 3; if (r >= 25) return 2; if (r >= 10) return 1;
-  if (r <= -25) return 1; return 0;
-}
-function scoreFgMom(c) {
-  if (c >= 25) return -2; if (c >= 15) return -1;
-  if (c <= -25) return 2; if (c <= -15) return 1; return 0;
-}
-function scoreVixSlope(s) {
-  if (s >= 50) return -2; if (s >= 25) return -1; if (s <= -30) return 1; return 0;
-}
-
-const W = { vix: 1.0, fg: 1.0, rsi: 0.6, ma: 0.7, dd: 0.9, hy: 1.0, yc: 0.8, hy_mom: 0.7, fg_mom: 0.5, vix_slope: 0.5 };
-
-function compute(d) {
-  const ma_dist = ((d.spx / d.spx_ma200) - 1) * 100;
-  const spx_dd = ((d.spx / d.spx_high) - 1) * 100;
-  const ndx_dd = ((d.ndx / d.ndx_high) - 1) * 100;
-  const avg_dd = (spx_dd + ndx_dd) / 2;
-  const hy_roc = ((d.hy - d.hy_6m_ago) / d.hy_6m_ago) * 100;
-  const fg_change = d.fg - d.fg_1m_ago;
-  const vix_slope = ((d.vix - d.vix_3m_ago) / d.vix_3m_ago) * 100;
-  
-  const scores = {
-    vix: scoreVix(d.vix, d.vix_3m), fg: scoreFg(d.fg),
-    rsi: scoreRsi(d.rsi_w), ma: scoreMa(ma_dist), dd: scoreDd(avg_dd),
-    hy: scoreHy(d.hy), yc: scoreYc(d.yc),
-    hy_mom: scoreHyMom(hy_roc), fg_mom: scoreFgMom(fg_change), vix_slope: scoreVixSlope(vix_slope),
-  };
-  
-  let weighted = Object.entries(scores).reduce((s, [k, v]) => s + v * W[k], 0);
-  
-  // Regime
-  let regime = "BULL_MID", regimeLabel = "중기 강세장";
-  if (avg_dd <= -15) { regime = "BEAR"; regimeLabel = "약세장 (큰 하락)"; }
-  else if (d.yc < 0.3 && d.hy >= 350) { regime = "LATE_CYCLE"; regimeLabel = "후기 사이클"; }
-  else if (d.yc >= 1.5) { regime = "BULL_EARLY"; regimeLabel = "초기 강세장"; }
-  
-  const rW = { BULL_EARLY: [0.85, 1], BULL_MID: [1, 1], LATE_CYCLE: [1.1, 0.95], BEAR: [0.7, 1.1] };
-  const [rs, rb] = rW[regime];
-  if (weighted < 0) weighted *= rs; else weighted *= rb;
-  
-  // Sell conf
-  let sellConf = 0; const sellChecks = [];
-  if (d.yc < 0.1) { sellConf++; sellChecks.push("YC<0.1"); }
-  if (d.hy >= 400) { sellConf++; sellChecks.push("HY≥400"); }
-  if (ma_dist >= 12) { sellConf++; sellChecks.push("MA+12%"); }
-  if (d.fg > 80) { sellConf++; sellChecks.push("F&G>80"); }
-  if (hy_roc >= 25) { sellConf++; sellChecks.push("HY ROC≥25%"); }
-  
-  if (weighted <= -3) {
-    if (sellConf === 0) weighted = Math.max(weighted, -3);
-    else if (sellConf === 1) weighted = Math.max(weighted, -6.5);
-  }
-  
-  // Buy panic
-  let buyPanic = 0; const buyChecks = [];
-  if (d.vix >= 30) { buyPanic++; buyChecks.push("VIX≥30"); }
-  if (avg_dd <= -15) { buyPanic++; buyChecks.push("DD≤-15%"); }
-  if (d.hy >= 600) { buyPanic++; buyChecks.push("HY≥600"); }
-  if (d.fg <= 15) { buyPanic++; buyChecks.push("F&G≤15"); }
-  
-  if (weighted >= 8 && buyPanic < 2) weighted = Math.min(weighted, 7);
-  
-  let buyExtreme = 0;
-  if (d.vix >= 40) buyExtreme++;
-  if (avg_dd <= -25) buyExtreme++;
-  if (d.hy >= 800) buyExtreme++;
-  if (d.fg <= 10) buyExtreme++;
-  if (weighted >= 13 && buyExtreme < 3) weighted = Math.min(weighted, 12);
-  
-  // Mid-Decline
-  let midDecline = false; let mdFactors = [];
-  if (weighted >= 4 && hy_roc >= 25 && d.hy < 1000 && avg_dd > -25) {
-    let isCap = false;
-    if (d.vix >= 40) isCap = true;
-    else if (d.vix >= 25 && (d.fg <= 20 || avg_dd <= -20)) isCap = true;
-    if (!isCap) {
-      midDecline = true;
-      mdFactors = [`HY ROC +${hy_roc.toFixed(0)}%`, `HY ${d.hy}`, `DD ${avg_dd.toFixed(0)}%`, `VIX ${d.vix}`];
-      if (weighted >= 13) weighted = Math.min(weighted, 12);
-      else if (weighted >= 8) weighted = Math.min(weighted, 7);
-      else weighted = Math.min(weighted, 3);
-    }
-  }
-  
-  let level, color;
-  if (weighted >= 13) { level = "CRASH_BUY"; color = "#00C853"; }
-  else if (weighted >= 8) { level = "STRONG_BUY"; color = "#43A047"; }
-  else if (weighted >= 4) { level = "BUY"; color = "#66BB6A"; }
-  else if (weighted >= 1.5) { level = "WATCH"; color = "#9CCC65"; }
-  else if (weighted >= -1.5) { level = "NEUTRAL"; color = "#8B949E"; }
-  else if (weighted >= -4) { level = "CAUTION"; color = "#FB8C00"; }
-  else if (weighted >= -7) { level = "WARNING"; color = "#E53935"; }
-  else if (weighted >= -10) { level = "STRONG_SELL"; color = "#C62828"; }
-  else { level = "CRASH_WARNING"; color = "#B71C1C"; }
-  
+function getConfig() {
   return {
-    level, color, weighted: weighted.toFixed(2),
-    regime, regimeLabel, sellConf, sellChecks, buyPanic, buyChecks,
-    midDecline, mdFactors, scores,
-    derived: { ma_dist, spx_dd, ndx_dd, avg_dd, hy_roc, fg_change, vix_slope },
+    user: localStorage.getItem("v12_user") || DEFAULT_USER,
+    repo: localStorage.getItem("v12_repo") || DEFAULT_REPO,
+    branch: localStorage.getItem("v12_branch") || DEFAULT_BRANCH,
   };
 }
 
-const PROB = {
-  CRASH_BUY: { up15: 60, n: 5, tag: "역사적 매수" },
-  STRONG_BUY: { up15: 75, n: 12, tag: "가장 신뢰" },
-  BUY: { up15: 56, n: 9, tag: "매수 우위" },
-  WATCH: { up15: 17, n: 6, tag: "관망" },
-  NEUTRAL: { tag: "중립" },
-  CAUTION: { down15: 43, n: 7, tag: "주의" },
-  WARNING: { down15: 62, n: 8, tag: "경보" },
-  STRONG_SELL: { down15: 100, n: 1, tag: "강력 매도" },
-  CRASH_WARNING: { down15: 100, n: 1, tag: "패닉 경보" },
-};
-
-// ═══════════════════════════════════════════════════════════════
-// UI 렌더링
-// ═══════════════════════════════════════════════════════════════
-
-let state = loadState();
-
-function loadState() {
-  try {
-    const saved = localStorage.getItem("v8_state");
-    if (saved) return JSON.parse(saved);
-  } catch (e) {}
-  return { ...DEFAULT_INPUT };
+function getDataUrl() {
+  const c = getConfig();
+  return `https://raw.githubusercontent.com/${c.user}/${c.repo}/${c.branch}/data_unified.json?t=${Date.now()}`;
 }
 
-function saveState() {
-  try { localStorage.setItem("v8_state", JSON.stringify(state)); } catch (e) {}
-}
+// 상태
+let appData = null;
 
-function update(key, val) {
-  state[key] = parseFloat(val) || 0;
-  saveState();
-  render();
-}
-
-function applyPreset(vals) {
-  state = { ...vals };
-  saveState();
-  renderInputs();
-  render();
-}
-
-function reset() {
-  if (confirm("모든 입력값을 초기화하시겠습니까?")) {
-    state = { ...DEFAULT_INPUT };
-    saveState();
-    renderInputs();
-    render();
-  }
-}
-
-function renderPresets() {
-  const html = Object.entries(PRESETS).map(([name, vals]) =>
-    `<button class="preset-btn" onclick='applyPreset(${JSON.stringify(vals)})'>${name}</button>`
-  ).join("");
-  document.getElementById("presets").innerHTML = html;
-}
-
-function renderInputs() {
-  const html = INPUT_FIELDS.map(f => `
-    <div class="input-card">
-      <div class="input-label">
-        <span>${f.label}</span>
-        <span class="input-hint" id="hint-${f.key}"></span>
-      </div>
-      <div class="input-row">
-        <input type="number" step="${f.step}" inputmode="decimal"
-               class="num-input" id="input-${f.key}"
-               value="${state[f.key]}"
-               onchange="update('${f.key}', this.value)"
-               oninput="update('${f.key}', this.value)">
-      </div>
-    </div>
-  `).join("");
-  document.getElementById("inputs").innerHTML = html;
-}
-
-function buildGauge(score, color) {
-  const cx = 180, cy = 175, r = 130;
-  const ZONES = [
-    { from: -15, to: -10, color: "#B71C1C" },  // CRASH_WARNING
-    { from: -10, to: -7,  color: "#C62828" },  // STRONG_SELL
-    { from: -7,  to: -4,  color: "#E53935" },  // WARNING
-    { from: -4,  to: -1.5, color: "#FB8C00" }, // CAUTION
-    { from: -1.5, to: 1.5, color: "#5A6678" }, // NEUTRAL
-    { from: 1.5, to: 4,   color: "#9CCC65" },  // WATCH
-    { from: 4,   to: 8,   color: "#66BB6A" },  // BUY
-    { from: 8,   to: 13,  color: "#43A047" },  // STRONG_BUY
-    { from: 13,  to: 15,  color: "#00C853" },  // CRASH_BUY
-  ];
-  
-  // -15 → 180°, +15 → 0°
-  const angleFromScore = (s) => 180 - (s + 15) * 6;
-  const xy = (angle, rad) => ({
-    x: cx + rad * Math.cos(angle * Math.PI / 180),
-    y: cy - rad * Math.sin(angle * Math.PI / 180)
+// ──────────────────────────────────────────────────────────
+// Tab 전환
+// ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const page = btn.dataset.page;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`page-${page}`).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-  
-  // 9개 색상 segment
-  let arcs = "";
-  ZONES.forEach((zone, i) => {
-    const a1 = angleFromScore(zone.from);
-    const a2 = angleFromScore(zone.to);
-    const p1 = xy(a1, r);
-    const p2 = xy(a2, r);
-    arcs += `<path d="M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${r} ${r} 0 0 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}" stroke="${zone.color}" stroke-width="32" fill="none" opacity="0.92"/>`;
-  });
-  
-  // 단계 구분선 (작은 tick)
-  let ticks = "";
-  [-10, -7, -4, -1.5, 1.5, 4, 8, 13].forEach(s => {
-    const a = angleFromScore(s);
-    const inner = xy(a, r - 17);
-    const outer = xy(a, r + 17);
-    ticks += `<line x1="${inner.x.toFixed(1)}" y1="${inner.y.toFixed(1)}" x2="${outer.x.toFixed(1)}" y2="${outer.y.toFixed(1)}" stroke="#0D1117" stroke-width="2"/>`;
-  });
-  
-  // 숫자 라벨 (-15, -10, -7, -4, 0, +4, +8, +13, +15)
-  let labels = "";
-  [-15, -10, -7, -4, 0, 4, 8, 13, 15].forEach(s => {
-    const a = angleFromScore(s);
-    const pos = xy(a, r + 28);
-    const text = s > 0 ? `+${s}` : `${s}`;
-    labels += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" fill="#5A6678" font-size="10" font-family="monospace" font-weight="600" text-anchor="middle" dominant-baseline="middle">${text}</text>`;
-  });
-  
-  // 바늘 (needle)
-  const clamped = Math.max(-15, Math.min(15, score));
-  const needleA = angleFromScore(clamped);
-  const needleEnd = xy(needleA, r - 6);
-  const needleBase1 = xy(needleA + 90, 5);
-  const needleBase2 = xy(needleA - 90, 5);
-  
-  const needle = `
-    <polygon points="${needleEnd.x.toFixed(1)},${needleEnd.y.toFixed(1)} ${(cx + needleBase1.x - cx).toFixed(1)},${(cy + needleBase1.y - cy).toFixed(1)} ${(cx + needleBase2.x - cx).toFixed(1)},${(cy + needleBase2.y - cy).toFixed(1)}"
-             fill="${color}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
-    <circle cx="${cx}" cy="${cy}" r="9" fill="${color}" stroke="white" stroke-width="2.5"/>
-    <circle cx="${cx}" cy="${cy}" r="3" fill="white"/>
-  `;
-  
-  return `
-    <svg class="gauge-svg" viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg">
-      ${arcs}
-      ${ticks}
-      ${labels}
-      ${needle}
-    </svg>
-  `;
-}
-
-const STAGE_LABELS = {
-  CRASH_BUY: "🟢🟢🟢 역사적 매수 기회",
-  STRONG_BUY: "🟢🟢 강력 매수 신호",
-  BUY: "🟢 매수 신호",
-  WATCH: "⚪ 관망",
-  NEUTRAL: "⚪ 중립",
-  CAUTION: "🟡 주의",
-  WARNING: "🔴🔴 경보",
-  STRONG_SELL: "🔴🔴🔴 강력 매도",
-  CRASH_WARNING: "🚨🚨🚨 패닉 경보",
-};
-
-function render() {
-  const sig = compute(state);
-  const prob = PROB[sig.level] || {};
-  
-  // Signal card
-  const signalEl = document.getElementById("signal");
-  signalEl.style.borderColor = sig.color;
-  signalEl.style.background = `linear-gradient(180deg, ${sig.color}10, rgba(13,17,23,0.4))`;
-  
-  // Gauge + 단계 표시
-  let html = `
-    <div class="gauge-container">
-      ${buildGauge(parseFloat(sig.weighted), sig.color)}
-      <div class="gauge-value">
-        <div class="gauge-score-num" style="color: ${sig.color};">${sig.weighted}</div>
-        <div class="gauge-score-label">SCORE</div>
-      </div>
-    </div>
-    <div class="level-banner" style="border-color: ${sig.color}; background: ${sig.color}18;">
-      <div class="level-name" style="color: ${sig.color};">${sig.level}</div>
-      <div class="level-stage">${STAGE_LABELS[sig.level] || ""}</div>
-    </div>
-    <div class="score-info" style="font-size: 11px; color: #8B949E; text-align: center; margin-bottom: 10px;">
-      국면: <strong style="color: #E6EDF3;">${sig.regime}</strong> (${sig.regimeLabel})
-    </div>
-  `;
-  
-  if (prob.up15) {
-    html += `<div class="prob-box" style="border-color: ${sig.color}40;">
-      <div class="prob-label">📊 12개월 내 +15% 확률</div>
-      <div class="prob-value" style="color: #3FB950;">${prob.up15}%</div>
-      <div class="prob-tag">${prob.tag} · n=${prob.n}</div>
-    </div>`;
-  } else if (prob.down15) {
-    html += `<div class="prob-box" style="border-color: ${sig.color}40;">
-      <div class="prob-label">📊 12개월 내 -15% MDD 확률</div>
-      <div class="prob-value" style="color: #F85149;">${prob.down15}%</div>
-      <div class="prob-tag">${prob.tag} · n=${prob.n}</div>
-    </div>`;
-  } else if (prob.tag) {
-    html += `<div class="prob-box"><div class="prob-tag">${prob.tag}</div></div>`;
-  }
-  
-  if (sig.midDecline) {
-    html += `<div class="warning-box">
-      <div class="warning-title">⚠️ Mid-Decline 함정 — 매수 신호 1단계 강등</div>
-      <div class="warning-text">${sig.mdFactors.join(" · ")}</div>
-    </div>`;
-  }
-  
-  signalEl.innerHTML = html;
-  
-  // Update input hints
-  document.getElementById("hint-spx_high").textContent = `DD ${sig.derived.spx_dd.toFixed(1)}%`;
-  document.getElementById("hint-spx_ma200").textContent = `${sig.derived.ma_dist > 0 ? '+' : ''}${sig.derived.ma_dist.toFixed(1)}%`;
-  document.getElementById("hint-ndx_high").textContent = `DD ${sig.derived.ndx_dd.toFixed(1)}%`;
-  document.getElementById("hint-vix_3m_ago").textContent = `slope ${sig.derived.vix_slope > 0 ? '+' : ''}${sig.derived.vix_slope.toFixed(0)}%`;
-  document.getElementById("hint-fg_1m_ago").textContent = `${sig.derived.fg_change > 0 ? '+' : ''}${sig.derived.fg_change}`;
-  document.getElementById("hint-hy_6m_ago").textContent = `ROC ${sig.derived.hy_roc > 0 ? '+' : ''}${sig.derived.hy_roc.toFixed(0)}%`;
-  
-  // Score breakdown
-  const breakdownHtml = Object.entries(sig.scores).map(([k, s]) =>
-    `<div class="score-item">
-      <span class="score-key">${k}</span>
-      <span class="score-val ${s > 0 ? 'pos' : s < 0 ? 'neg' : 'zero'}">${s > 0 ? '+' : ''}${s}</span>
-    </div>`
-  ).join("");
-  document.getElementById("breakdown").innerHTML = breakdownHtml;
-  document.getElementById("total-score").textContent = sig.weighted;
-  document.getElementById("total-score").style.color = sig.color;
-  
-  // Confirmations
-  let confHtml = "";
-  if (sig.regime !== "BULL_MID") {
-    confHtml += `<div class="conf-section">
-      <div class="conf-line regime">🌐 ${sig.regimeLabel} → 매도 ${sig.regime === "BEAR" ? "0.70x" : sig.regime === "LATE_CYCLE" ? "1.10x" : "0.85x"}, 매수 ${sig.regime === "BEAR" ? "1.10x" : "1.00x"}</div>
-    </div>`;
-  }
-  if (sig.sellChecks.length > 0) {
-    confHtml += `<div class="conf-section">
-      <div class="conf-line sell">🔻 매도 confirmation (${sig.sellConf}/5): ${sig.sellChecks.join(", ")}</div>
-    </div>`;
-  }
-  if (sig.buyChecks.length > 0) {
-    confHtml += `<div class="conf-section">
-      <div class="conf-line buy">🟢 매수 패닉 (${sig.buyPanic}/4): ${sig.buyChecks.join(", ")}</div>
-    </div>`;
-  }
-  document.getElementById("conf-section").innerHTML = confHtml;
-}
-
-// PWA install prompt
-let deferredPrompt;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById("install-prompt").classList.add("show");
 });
-function closeInstall() {
-  document.getElementById("install-prompt").classList.remove("show");
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt = null;
+
+// ──────────────────────────────────────────────────────────
+// 데이터 fetch
+// ──────────────────────────────────────────────────────────
+async function fetchData() {
+  try {
+    const r = await fetch(getDataUrl(), { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    appData = await r.json();
+    updateLastUpdate(true);
+    render();
+  } catch (err) {
+    console.error(err);
+    updateLastUpdate(false, err.message);
+    renderError(err);
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 설정 모달
-// ═══════════════════════════════════════════════════════════════
-function openSettings() {
-  document.getElementById("github-user-input").value = localStorage.getItem("github_user") || "mryang82";
-  document.getElementById("github-repo-input").value = localStorage.getItem("github_repo") || "market-signal-monitor-auto";
-  document.getElementById("fred-key-input").value = localStorage.getItem("fred_key") || "";
-  document.getElementById("settings-modal").classList.add("show");
+function updateLastUpdate(success, errMsg) {
+  const el = document.getElementById('last-update');
+  if (success && appData) {
+    const ts = appData.timestamp ? new Date(appData.timestamp) : null;
+    if (ts) {
+      const now = new Date();
+      const diffMin = Math.floor((now - ts) / 60000);
+      let timeStr;
+      if (diffMin < 60) timeStr = `${diffMin}분 전`;
+      else if (diffMin < 1440) timeStr = `${Math.floor(diffMin / 60)}시간 전`;
+      else timeStr = `${Math.floor(diffMin / 1440)}일 전`;
+      
+      const cls = diffMin < 1440 ? 'fresh' : 'stale';
+      el.className = `last-update ${cls}`;
+      el.textContent = `마지막 업데이트: ${ts.toLocaleString('ko-KR', { 
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+      })} (${timeStr})`;
+    }
+  } else {
+    el.className = 'last-update error';
+    el.textContent = `❌ 데이터 로딩 실패${errMsg ? ': ' + errMsg : ''}`;
+  }
 }
-function closeSettings() {
-  document.getElementById("settings-modal").classList.remove("show");
+
+function renderError(err) {
+  const html = `<div class="error-msg">
+    데이터를 불러올 수 없습니다.<br>
+    ⚙️ 설정에서 저장소 정보를 확인하거나, 잠시 후 다시 시도하세요.<br>
+    <br>오류: ${err.message}
+  </div>`;
+  ['main', 'long', 'short', 'context'].forEach(p => {
+    document.getElementById(`${p}-content`).innerHTML = html;
+  });
 }
-function saveSettings() {
-  const ghUser = document.getElementById("github-user-input").value.trim();
-  const ghRepo = document.getElementById("github-repo-input").value.trim();
-  const fredKey = document.getElementById("fred-key-input").value.trim();
+
+// ──────────────────────────────────────────────────────────
+// 렌더링 — 메인 탭
+// ──────────────────────────────────────────────────────────
+function render() {
+  if (!appData) return;
+  renderMain();
+  renderLong();
+  renderShort();
+  renderContext();
+}
+
+function renderMain() {
+  const c = document.getElementById('main-content');
+  const long = appData.long_term;
+  const short = appData.short_term;
+  const conflict = appData.conflict;
   
-  if (ghUser) localStorage.setItem("github_user", ghUser);
-  if (ghRepo) localStorage.setItem("github_repo", ghRepo);
-  if (fredKey) localStorage.setItem("fred_key", fredKey);
-  else localStorage.removeItem("fred_key");
+  // 종합 상태 결정 (가장 중요한 신호 우선)
+  let primaryLevel = "NEUTRAL";
+  let primaryLabel = "현 포지션 유지";
+  let primarySub = "특별한 신호 없음";
   
-  alert("✅ 설정 저장됨");
-  closeSettings();
+  if (short?.level === "PANIC_BUY" || long?.level === "CRASH_BUY") {
+    primaryLevel = short?.level === "PANIC_BUY" ? "PANIC_BUY" : "CRASH_BUY";
+    primaryLabel = "극단 패닉 매수";
+    primarySub = "역사적 진입 기회";
+  } else if (short?.level === "SHIFT_DOWN") {
+    primaryLevel = "SHIFT_DOWN";
+    primaryLabel = "단기 매도 신호";
+    primarySub = "3M-10% 적중률 43%";
+  } else if (long?.level === "STRONG_BUY") {
+    primaryLevel = "STRONG_BUY";
+    primaryLabel = "장기 강력 매수";
+    primarySub = "12M+15% 적중률 80%";
+  } else if (short?.level === "SHIFT_UP") {
+    primaryLevel = "SHIFT_UP";
+    primaryLabel = "단기 매수 진입";
+    primarySub = "3M+10% 적중률 49%";
+  } else if (long?.level === "BUY" || short?.level === "CAUTION_UP") {
+    primaryLevel = long?.level === "BUY" ? "BUY" : "CAUTION_UP";
+    primaryLabel = "분할 매수 검토";
+    primarySub = "추세 양호";
+  } else if (short?.level === "CAUTION_DOWN") {
+    primaryLevel = "CAUTION_DOWN";
+    primaryLabel = "비중 조절 검토";
+    primarySub = "3M-10% 적중률 32%";
+  }
+  
+  const emoji = getEmoji(primaryLevel);
+  
+  let html = `
+    <div class="status-big level-${primaryLevel}">
+      <div class="status-emoji">${emoji}</div>
+      <div class="status-level">${primaryLabel}</div>
+      <div class="status-sub">${primarySub}</div>
+    </div>
+  `;
+  
+  // 충돌 배너
+  if (conflict) {
+    const clsMap = { good: 'conflict-good', warn: 'conflict-warn', danger: 'conflict-danger', info: 'conflict-info' };
+    const cls = clsMap[conflict.level] || 'conflict-info';
+    const icon = conflict.level === 'good' ? '✓' : 
+                 conflict.level === 'danger' ? '⚠️' :
+                 conflict.level === 'warn' ? '⚠️' : 'ℹ️';
+    html += `
+      <div class="conflict-banner ${cls}">
+        <div class="cb-icon">${icon}</div>
+        <div class="cb-body">
+          <div class="cb-title">${conflict.title}</div>
+          <div class="cb-desc">${conflict.desc || ''}</div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // 장기/단기 요약
+  html += `
+    <div class="summary-row">
+      <div class="summary-cell" onclick="goToTab('long')">
+        <div class="sc-label">📊 장기 (12M)</div>
+        <div class="sc-level level-${long?.level || 'NEUTRAL'}" style="background:none; padding:0;">
+          ${long?.level || '?'}
+        </div>
+        <div class="sc-meta">${long?.score !== undefined ? '점수 ' + (long.score >= 0 ? '+' : '') + long.score.toFixed(1) : ''}</div>
+      </div>
+      <div class="summary-cell" onclick="goToTab('short')">
+        <div class="sc-label">⚡ 단기 (3M)</div>
+        <div class="sc-level level-${short?.level || 'NEUTRAL'}" style="background:none; padding:0;">
+          ${short?.level || '?'}
+        </div>
+        <div class="sc-meta">${short?.score !== undefined ? '점수 ' + (short.score >= 0 ? '+' : '') + short.score : ''}</div>
+      </div>
+    </div>
+  `;
+  
+  // 활성 컨텍스트 알람 요약
+  const alerts = short?.context_alerts || [];
+  if (alerts.length > 0) {
+    html += `
+      <div class="card">
+        <div class="card-title">⚠️ 활성 위험 알람 <span class="card-hint">${alerts.length}개</span></div>
+        ${alerts.map(a => `
+          <div class="alert-item alert-${a.level}" style="margin-bottom:8px;">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-body">
+              <div class="alert-title">${a.title}</div>
+              <div class="alert-desc">${a.desc}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // 핵심 지표 요약
+  const ind = short?.indicators || {};
+  html += `
+    <div class="card">
+      <div class="card-title">📊 시장 스냅샷</div>
+      <div class="indicator-grid">
+        ${renderIndicator('SPX', ind.SPX, '', 0)}
+        ${renderIndicator('VIX', ind.VIX, '', 1)}
+        ${renderIndicator('SPX 20d', ind.SPX_20d_chg, '%', 2, true)}
+        ${renderIndicator('VIX/VIX3M', ind.VIX_VIX3M_ratio, '', 2)}
+        ${renderIndicator('HYG 5d', ind.HYG_5d_chg, '%', 2, true)}
+        ${renderIndicator('KRE 20d', ind.KRE_20d_chg, '%', 2, true)}
+      </div>
+    </div>
+  `;
+  
+  c.innerHTML = html;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 자동 데이터 수집
-// ═══════════════════════════════════════════════════════════════
-function showProgress(text) {
-  document.getElementById("fetch-text").textContent = text;
-  document.getElementById("fetch-progress").classList.add("show");
-}
-function hideProgress() {
-  document.getElementById("fetch-progress").classList.remove("show");
-}
-
-async function fetchFearGreed() {
-  const r = await fetch('https://api.alternative.me/fng/?limit=30', { signal: AbortSignal.timeout(15000) });
-  const data = await r.json();
-  const current = parseInt(data.data[0].value);
-  const idx = Math.min(29, data.data.length - 1);
-  const monthAgo = parseInt(data.data[idx].value);
-  return { current, month_ago: monthAgo };
-}
-
-// 통합 fetch — 직접 + 다중 proxy fallback (15초 타임아웃)
-async function fetchWithFallback(url, parser = null) {
-  const proxies = [
-    { name: "direct", build: u => u },
-    { name: "corsproxy.io", build: u => `https://corsproxy.io/?${encodeURIComponent(u)}` },
-    { name: "allorigins", build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
-    { name: "codetabs", build: u => `https://api.codetabs.com/v1/proxy?quest=${u}` },
-    { name: "cors.sh", build: u => `https://proxy.cors.sh/${u}` },
-    { name: "thingproxy", build: u => `https://thingproxy.freeboard.io/fetch/${u}` },
+// ──────────────────────────────────────────────────────────
+// 장기 탭
+// ──────────────────────────────────────────────────────────
+function renderLong() {
+  const c = document.getElementById('long-content');
+  const long = appData.long_term;
+  
+  if (!long) {
+    c.innerHTML = `<div class="error-msg">장기 신호 데이터 없음. 장기 저장소(market-signal-monitor-auto)가 실행되었는지 확인하세요.</div>`;
+    return;
+  }
+  
+  const emoji = getEmoji(long.level);
+  const score = long.score !== undefined ? (long.score >= 0 ? '+' : '') + long.score.toFixed(2) : '?';
+  
+  let html = `
+    <div class="status-big level-${long.level || 'NEUTRAL'}">
+      <div class="status-emoji">${emoji}</div>
+      <div class="status-level">${long.level || 'UNKNOWN'}</div>
+      <div class="status-sub">점수 ${score} · 시간 지평 12M ±15%</div>
+    </div>
+  `;
+  
+  // 장기 백테스트 정확도
+  html += `
+    <div class="card">
+      <div class="card-title">🎯 v8 백테스트 적중률 <span class="card-hint">12M endpoint ±15% · n=7,392</span></div>
+      <table class="bt-table">
+        <thead><tr><th>레벨</th><th>n</th><th class="num">12M +15% 적중</th><th class="num">평균 12M</th></tr></thead>
+        <tbody>
+          ${renderBtRow('CRASH_BUY', 3, '100.0%', '+70.6%', long.level)}
+          ${renderBtRow('STRONG_BUY', 222, '79.7%', '+27.8%', long.level)}
+          ${renderBtRow('BUY', 538, '36.6%', '+2.9%', long.level)}
+          ${renderBtRow('WATCH', 527, '36.6%', '-0.2%', long.level)}
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  // 장기 지표 (data.json에 있는 핵심)
+  const keys = [
+    ['SPX 현재', long.spx, '', 0],
+    ['SPX MA200', long.spx_ma200, '', 0],
+    ['VIX', long.vix, '', 1],
+    ['F&G', long.fg, '', 0],
+    ['HY 스프레드', long.hy, 'bp', 0],
+    ['2y/10y', long.yc, '%', 2],
   ];
   
-  const errors = [];
-  for (const { name, build } of proxies) {
-    try {
-      const r = await fetch(build(url), { signal: AbortSignal.timeout(15000) });
-      if (!r.ok) {
-        errors.push(`${name}: HTTP ${r.status}`);
-        continue;
-      }
-      const text = await r.text();
-      if (!text || text.length < 50) {
-        errors.push(`${name}: empty`);
-        continue;
-      }
-      // 파싱 시도
-      if (parser) {
-        try {
-          return parser(text);
-        } catch (pe) {
-          errors.push(`${name}: parse fail ${pe.message}`);
-          continue;
-        }
-      }
-      return text;
-    } catch (e) {
-      errors.push(`${name}: ${e.name === 'TimeoutError' ? 'timeout' : (e.message || e.name)}`);
-    }
-  }
-  throw new Error(errors.slice(0, 3).join(" | "));
-}
-
-async function fetchStooq(symbol) {
-  const url = `https://stooq.com/q/d/l/?s=${symbol}&i=d`;
-  const text = await fetchWithFallback(url);
-  
-  const lines = text.trim().split('\n');
-  if (lines.length < 200) throw new Error(`데이터 부족 (${lines.length}줄)`);
-  
-  const data = lines.slice(1).map(line => {
-    const cols = line.split(',');
-    return { date: cols[0], close: parseFloat(cols[4]) };
-  }).filter(d => !isNaN(d.close));
-  
-  if (data.length < 200) throw new Error(`유효 데이터 부족 (${data.length})`);
-  
-  const latest = data[data.length - 1];
-  const last200 = data.slice(-200);
-  const last252 = data.slice(-Math.min(252, data.length));
-  const last63 = data.slice(-Math.min(63, data.length));
-  
-  return {
-    current: latest.close,
-    ma200: last200.reduce((s, d) => s + d.close, 0) / 200,
-    high52w: Math.max(...last252.map(d => d.close)),
-    avg_3m: last63.reduce((s, d) => s + d.close, 0) / last63.length,
-    value_3m_ago: last63[0].close,
-    weekly_data: data,
-  };
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function calcRSI(prices, period = 14) {
-  if (prices.length < period + 1) return null;
-  const recent = prices.slice(-period - 1);
-  let gains = 0, losses = 0;
-  for (let i = 1; i < recent.length; i++) {
-    const diff = recent[i] - recent[i-1];
-    if (diff > 0) gains += diff;
-    else losses -= diff;
-  }
-  const avgGain = gains / period;
-  const avgLoss = losses / period;
-  if (avgLoss === 0) return 100;
-  return 100 - (100 / (1 + avgGain / avgLoss));
-}
-
-async function fetchFRED(seriesId, apiKey) {
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&sort_order=desc&limit=200`;
-  
-  const text = await fetchWithFallback(url);
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    throw new Error(`JSON parse 실패: ${text.slice(0, 100)}`);
-  }
-  
-  if (!data.observations) throw new Error(`응답 형식 오류 (no observations)`);
-  
-  const obs = data.observations
-    .map(o => ({ date: o.date, value: parseFloat(o.value) }))
-    .filter(o => !isNaN(o.value));
-  
-  if (obs.length === 0) throw new Error(`유효 데이터 없음`);
-  
-  const current = obs[0].value;
-  
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  let value_6m_ago = current;
-  let minDiff = Infinity;
-  for (const o of obs) {
-    const diff = Math.abs(new Date(o.date) - sixMonthsAgo);
-    if (diff < minDiff) {
-      minDiff = diff;
-      value_6m_ago = o.value;
-    }
-  }
-  
-  return { current, value_6m_ago };
-}
-
-// 결과 패널 표시
-function showFetchResult(items, errors) {
-  const panel = document.getElementById("fetch-result");
-  const list = document.getElementById("fetch-result-list");
-  const errorsEl = document.getElementById("fetch-result-errors");
-  const titleEl = document.getElementById("fetch-result-title-text");
-  
-  const successCount = items.filter(i => i.success).length;
-  const totalCount = items.length;
-  
-  titleEl.innerHTML = errors.length === 0 
-    ? `✅ 모든 데이터 갱신 완료 (${successCount}/${totalCount})`
-    : `⚠️ 가져오기 결과 (${successCount}/${totalCount})`;
-  
-  // 항목 목록
-  list.innerHTML = items.map(i => `
-    <div class="fetch-item ${i.success ? 'success' : 'fail'}">
-      <span>${i.success ? '✓' : '✗'} ${i.name}</span>
-      <span style="opacity:0.7;">${i.success ? i.value : '실패'}</span>
-    </div>
-  `).join('');
-  
-  // 에러 상세
-  if (errors.length > 0) {
-    errorsEl.style.display = "block";
-    errorsEl.innerHTML = "<strong>에러 상세:</strong><br>" + 
-      errors.map(e => `• ${e}`).join("<br>");
-  } else {
-    errorsEl.style.display = "none";
-  }
-  
-  panel.classList.add("show");
-}
-
-function closeFetchResult() {
-  document.getElementById("fetch-result").classList.remove("show");
-}
-
-async function fetchDataJson() {
-  const ghUser = localStorage.getItem("github_user") || "mryang82";
-  const ghRepo = localStorage.getItem("github_repo") || "market-signal-monitor-auto";
-  const url = `https://raw.githubusercontent.com/${ghUser}/${ghRepo}/main/data.json?t=${Date.now()}`;
-  
-  const r = await fetch(url, { 
-    signal: AbortSignal.timeout(10000),
-    cache: "no-cache"
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return await r.json();
-}
-
-async function fetchAllData() {
-  const btn = document.getElementById("fetch-btn");
-  btn.disabled = true;
-  btn.textContent = "⏳ 가져오는 중...";
-  
-  closeFetchResult();
-  
-  // ★ 1순위: GitHub data.json (가장 안정적)
-  try {
-    showProgress("GitHub data.json 가져오는 중...");
-    const data = await fetchDataJson();
-    
-    // 14개 입력값 적용
-    const fields = ["spx", "spx_high", "spx_ma200", "ndx", "ndx_high",
-                    "vix", "vix_3m", "vix_3m_ago", "fg", "fg_1m_ago",
-                    "rsi_w", "hy", "hy_6m_ago", "yc"];
-    const items = [];
-    fields.forEach(k => {
-      if (data[k] !== null && data[k] !== undefined) {
-        state[k] = data[k];
-        items.push({ name: k, success: true, value: data[k] });
-      } else {
-        items.push({ name: k, success: false });
-      }
-    });
-    
-    saveState();
-    renderInputs();
-    render();
-    
-    hideProgress();
-    
-    // 결과 패널 표시 (data.json 정보 포함)
-    const ts = data.timestamp ? data.timestamp.slice(0, 16).replace("T", " ") : "";
-    const panel = document.getElementById("fetch-result");
-    document.getElementById("fetch-result-title-text").textContent = 
-      `✅ GitHub data.json (${ts})`;
-    
-    const list = document.getElementById("fetch-result-list");
-    list.innerHTML = items.map(i => `
-      <div class="fetch-item ${i.success ? 'success' : 'fail'}">
-        <span>${i.success ? '✓' : '✗'} ${i.name}</span>
-        <span style="opacity:0.7;">${i.success ? i.value : '-'}</span>
+  html += `
+    <div class="card">
+      <div class="card-title">📈 장기 지표</div>
+      <div class="indicator-grid">
+        ${keys.map(([label, val, unit, prec]) => 
+          renderIndicator(label, val, unit, prec)
+        ).join('')}
       </div>
-    `).join('');
-    
-    document.getElementById("fetch-result-errors").style.display = "none";
-    panel.classList.add("show");
-    
-    btn.disabled = false;
-    btn.textContent = "🔄 자동 가져오기";
-    return;
-  } catch (e) {
-    console.warn("data.json 실패, proxy fallback:", e);
-    showProgress(`data.json 실패 (${e.message}), proxy로 시도...`);
-    await sleep(1500);
+    </div>
+  `;
+  
+  // 정보
+  if (long.regime) {
+    html += `
+      <div class="card">
+        <div class="card-title">🌐 국면</div>
+        <div style="font-size:16px; font-weight:600; color:#cbd5e1;">${long.regime}</div>
+      </div>
+    `;
   }
   
-  // ★ 2순위: 기존 proxy 방식 fallback
-  const fredKey = localStorage.getItem("fred_key");
-  if (!fredKey) {
-    hideProgress();
-    alert("⚙️ GitHub data.json도 실패했고 FRED Key도 없습니다.\n설정에서 GitHub 사용자명/저장소를 확인하거나 FRED Key를 입력하세요.");
-    openSettings();
-    btn.disabled = false;
-    btn.textContent = "🔄 자동 가져오기";
-    return;
-  }
+  html += `
+    <div class="card">
+      <div class="card-title">ℹ️ 장기 모델 설명</div>
+      <div style="font-size:13px; color:#94a3b8; line-height:1.6;">
+        장기 v8 모델은 <b style="color:#22c55e;">매수 신호</b>에 강합니다 (STRONG_BUY 12M +15% 적중률 80%).<br><br>
+        ⚠️ v8 매도 신호(WARNING, STRONG_SELL)는 백테스트에서 정확도가 낮아 (~6%) <b>운영에서 제외</b>되었습니다.
+        매도 판단은 단기 v2 모델을 참조하세요.
+      </div>
+    </div>
+  `;
   
-  const updates = {};
-  const errors = [];
-  const items = [];
-  
-  // 1. F&G
-  try {
-    showProgress("Fear & Greed 가져오는 중...");
-    const fg = await fetchFearGreed();
-    updates.fg = fg.current;
-    updates.fg_1m_ago = fg.month_ago;
-    items.push({ name: "F&G", success: true, value: fg.current });
-  } catch (e) {
-    errors.push(`F&G: ${e.message}`);
-    items.push({ name: "F&G", success: false });
-  }
-  
-  // 2. SPX + RSI
-  try {
-    showProgress("S&P 500 가져오는 중...");
-    const spx = await fetchStooq("^spx");
-    updates.spx = Math.round(spx.current);
-    updates.spx_high = Math.round(spx.high52w);
-    updates.spx_ma200 = Math.round(spx.ma200);
-    items.push({ name: "S&P 500", success: true, value: Math.round(spx.current) });
-    
-    try {
-      const weekly = [];
-      for (let i = spx.weekly_data.length - 1; i >= 0; i -= 5) {
-        weekly.unshift(spx.weekly_data[i].close);
-        if (weekly.length >= 30) break;
-      }
-      const rsi = calcRSI(weekly, 14);
-      if (rsi !== null) {
-        updates.rsi_w = Math.round(rsi * 10) / 10;
-        items.push({ name: "RSI(W)", success: true, value: updates.rsi_w });
-      } else {
-        items.push({ name: "RSI(W)", success: false });
-      }
-    } catch (e) {
-      items.push({ name: "RSI(W)", success: false });
-    }
-  } catch (e) {
-    errors.push(`SPX: ${e.message}`);
-    items.push({ name: "S&P 500", success: false });
-    items.push({ name: "RSI(W)", success: false });
-  }
-  
-  await sleep(500);
-  
-  // 3. NDX
-  try {
-    showProgress("NASDAQ 가져오는 중...");
-    let ndx = null;
-    const NDX_SYMBOLS = ["^ndq", "^ixic", "^ndx", "^nasdaq"];
-    let ndxErrors = [];
-    for (const sym of NDX_SYMBOLS) {
-      try {
-        ndx = await fetchStooq(sym);
-        if (ndx) break;
-      } catch (e) {
-        ndxErrors.push(`${sym}: ${e.message}`);
-        await sleep(300);
-      }
-    }
-    if (ndx) {
-      updates.ndx = Math.round(ndx.current);
-      updates.ndx_high = Math.round(ndx.high52w);
-      items.push({ name: "NASDAQ", success: true, value: Math.round(ndx.current) });
-    } else {
-      throw new Error(`모든 심볼 실패: ${ndxErrors.join("; ")}`);
-    }
-  } catch (e) {
-    errors.push(`NDX: ${e.message}`);
-    items.push({ name: "NASDAQ", success: false });
-  }
-  
-  await sleep(500);
-  
-  // 4. VIX
-  try {
-    showProgress("VIX 가져오는 중...");
-    const vix = await fetchStooq("^vix");
-    updates.vix = Math.round(vix.current * 10) / 10;
-    updates.vix_3m = Math.round(vix.avg_3m * 10) / 10;
-    updates.vix_3m_ago = Math.round(vix.value_3m_ago * 10) / 10;
-    items.push({ name: "VIX", success: true, value: updates.vix });
-  } catch (e) {
-    errors.push(`VIX: ${e.message}`);
-    items.push({ name: "VIX", success: false });
-  }
-  
-  await sleep(500);
-  
-  // 5. HY Spread
-  try {
-    showProgress("HY Spread 가져오는 중...");
-    const hy = await fetchFRED("BAMLH0A0HYM2", fredKey);
-    updates.hy = Math.round(hy.current * 100);
-    updates.hy_6m_ago = Math.round(hy.value_6m_ago * 100);
-    items.push({ name: "HY Spread", success: true, value: updates.hy + "bp" });
-  } catch (e) {
-    errors.push(`HY: ${e.message}`);
-    items.push({ name: "HY Spread", success: false });
-  }
-  
-  // 6. Yield Curve
-  try {
-    showProgress("Yield Curve 가져오는 중...");
-    const dgs10 = await fetchFRED("DGS10", fredKey);
-    const dgs2 = await fetchFRED("DGS2", fredKey);
-    updates.yc = Math.round((dgs10.current - dgs2.current) * 100) / 100;
-    items.push({ name: "2y/10y", success: true, value: (updates.yc > 0 ? "+" : "") + updates.yc + "%" });
-  } catch (e) {
-    errors.push(`Yield: ${e.message}`);
-    items.push({ name: "2y/10y", success: false });
-  }
-  
-  if (Object.keys(updates).length > 0) {
-    Object.assign(state, updates);
-    saveState();
-    renderInputs();
-    render();
-  }
-  
-  hideProgress();
-  showFetchResult(items, errors);
-  
-  btn.disabled = false;
-  btn.textContent = "🔄 자동 가져오기";
-  
-  if (errors.length > 0) {
-    console.warn("Fetch errors:", errors);
-  }
+  c.innerHTML = html;
 }
 
-// Service worker
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./service-worker.js")
-    .catch(err => console.log("SW failed:", err));
+// ──────────────────────────────────────────────────────────
+// 단기 탭
+// ──────────────────────────────────────────────────────────
+function renderShort() {
+  const c = document.getElementById('short-content');
+  const short = appData.short_term;
+  
+  if (!short) {
+    c.innerHTML = `<div class="error-msg">단기 신호 데이터 없음.</div>`;
+    return;
+  }
+  
+  const emoji = getEmoji(short.level);
+  const score = short.score !== undefined ? (short.score >= 0 ? '+' : '') + short.score : '?';
+  
+  let html = `
+    <div class="status-big level-${short.level || 'NEUTRAL'}">
+      <div class="status-emoji">${emoji}</div>
+      <div class="status-level">${short.level || 'UNKNOWN'}</div>
+      <div class="status-sub">점수 ${score} · 시간 지평 3M ±10%</div>
+    </div>
+  `;
+  
+  // 4-Pillar 점수
+  const p = short.pillars || {};
+  html += `
+    <div class="card">
+      <div class="card-title">🏛️ 4-Pillar 점수 <span class="card-hint">매도 측정</span></div>
+      <div class="pillar-grid">
+        ${renderPillar('A', p.A_price_momentum, '가격')}
+        ${renderPillar('B', p.B_drawdown, '낙폭')}
+        ${renderPillar('C', p.C_credit_rotation, '신용')}
+        ${renderPillar('D', p.D_macro_stress, '거시')}
+      </div>
+    </div>
+  `;
+  
+  // 활성 트리거
+  const buyTriggers = short.triggers_buy || [];
+  const sellTriggers = short.triggers_sell || [];
+  
+  html += `
+    <div class="card">
+      <div class="card-title">📈 활성 매수 트리거 <span class="card-hint">${buyTriggers.length}개</span></div>
+      ${buyTriggers.length > 0 ? `
+        <div class="trigger-list">
+          ${buyTriggers.map(t => `
+            <div class="trigger-item">
+              <span class="trigger-pill buy">매수</span>
+              <span class="trigger-name">${t.name}</span>
+              <span class="trigger-weight">+${t.weight}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty-state">활성 매수 트리거 없음</div>'}
+    </div>
+  `;
+  
+  html += `
+    <div class="card">
+      <div class="card-title">📉 활성 매도 트리거 <span class="card-hint">${sellTriggers.length}개</span></div>
+      ${sellTriggers.length > 0 ? `
+        <div class="trigger-list">
+          ${sellTriggers.map(t => `
+            <div class="trigger-item">
+              <span class="trigger-pill sell">[${t.pillar}]</span>
+              <span class="trigger-name">${t.name}</span>
+              <span class="trigger-weight">+${t.weight}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty-state">활성 매도 트리거 없음</div>'}
+    </div>
+  `;
+  
+  // 백테스트 적중률
+  html += `
+    <div class="card">
+      <div class="card-title">🎯 v2 백테스트 적중률 <span class="card-hint">3M ±10% · n=7,392</span></div>
+      <table class="bt-table">
+        <thead><tr><th>레벨</th><th>n</th><th class="num">매수 +10%</th><th class="num">매도 -10%</th></tr></thead>
+        <tbody>
+          ${renderBtRow('PANIC_BUY', 293, '55.6%', '-', short.level)}
+          ${renderBtRow('SHIFT_UP', 689, '48.9%', '-', short.level)}
+          ${renderBtRow('CAUTION_UP', 753, '31.1%', '-', short.level)}
+          ${renderBtRow('CAUTION_DOWN', 877, '-', '31.8%', short.level)}
+          ${renderBtRow('SHIFT_DOWN', 334, '-', '42.8%', short.level)}
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  c.innerHTML = html;
 }
 
-// Init
-renderPresets();
-renderInputs();
-render();
+// ──────────────────────────────────────────────────────────
+// 컨텍스트 탭
+// ──────────────────────────────────────────────────────────
+function renderContext() {
+  const c = document.getElementById('context-content');
+  const short = appData.short_term;
+  const ind = short?.indicators || {};
+  const alerts = short?.context_alerts || [];
+  
+  let html = '';
+  
+  // 활성 알람
+  html += `
+    <div class="card">
+      <div class="card-title">⚠️ 활성 알람 <span class="card-hint">${alerts.length}개</span></div>
+      ${alerts.length > 0 ? alerts.map(a => `
+        <div class="alert-item alert-${a.level}">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-body">
+            <div class="alert-title">${a.title}</div>
+            <div class="alert-desc">${a.desc}</div>
+            <div class="alert-backtest">📊 ${a.backtest}</div>
+          </div>
+        </div>
+      `).join('') : '<div class="empty-state">활성 알람 없음</div>'}
+    </div>
+  `;
+  
+  // 컨텍스트 지표 상세
+  html += `
+    <div class="card">
+      <div class="card-title">🏦 은행 (KRE)</div>
+      <div class="indicator-grid">
+        ${renderIndicator('KRE 5d', ind.KRE_5d_chg, '%', 2, true)}
+        ${renderIndicator('KRE 20d', ind.KRE_20d_chg, '%', 2, true)}
+      </div>
+      <div style="font-size:11px; color:#64748b; margin-top:10px;">
+        20d &lt; -10% 단독 -15% 적중 28%, 5d &lt; -5% 단독 25%
+      </div>
+    </div>
+  `;
+  
+  html += `
+    <div class="card">
+      <div class="card-title">🔌 반도체 (SOXX)</div>
+      <div class="indicator-grid">
+        ${renderIndicator('SOXX 20d', ind.SOXX_20d_chg, '%', 2, true)}
+      </div>
+      <div style="font-size:11px; color:#64748b; margin-top:10px;">
+        20d &lt; -10% 단독 -15% 적중 28% (위험자산 선행)
+      </div>
+    </div>
+  `;
+  
+  html += `
+    <div class="card">
+      <div class="card-title">📉 시장 폭 (IWM vs SPX)</div>
+      <div class="indicator-grid">
+        ${renderIndicator('IWM/SPX 20d', ind.IWM_SPX_20d_chg, '%', 2, true)}
+      </div>
+      <div style="font-size:11px; color:#64748b; margin-top:10px;">
+        20d &lt; -5% 단독 -15% 적중 26% (소형주 약세 = 강세장 끝물)
+      </div>
+    </div>
+  `;
+  
+  html += `
+    <div class="card">
+      <div class="card-title">📊 변동성 구조 (VIX)</div>
+      <div class="indicator-grid">
+        ${renderIndicator('VIX', ind.VIX, '', 1)}
+        ${renderIndicator('VIX 5d', ind.VIX_5d_chg, '%', 1, true)}
+        ${renderIndicator('VIX/VIX3M', ind.VIX_VIX3M_ratio, '', 2)}
+        ${renderIndicator('VIX9D/VIX', ind.VIX9D_VIX_ratio, '', 2)}
+        ${renderIndicator('VVIX', ind.VVIX, '', 1)}
+        ${renderIndicator('SKEW', ind.SKEW, '', 1)}
+      </div>
+    </div>
+  `;
+  
+  // 추가 매크로 지표
+  html += `
+    <div class="card">
+      <div class="card-title">🌍 거시 지표</div>
+      <div class="indicator-grid">
+        ${renderIndicator('DXY', ind.DXY, '', 2)}
+        ${renderIndicator('DXY 20d', ind.DXY_20d_chg, '%', 2, true)}
+        ${renderIndicator('TNX', ind.TNX, '%', 2)}
+        ${renderIndicator('TNX 5d', ind.TNX_5d_chg_bp, 'bp', 1, true)}
+        ${renderIndicator('HYG 5d', ind.HYG_5d_chg, '%', 2, true)}
+        ${renderIndicator('XLP/XLY 20d', ind.XLP_XLY_20d_chg, '%', 2, false)}
+      </div>
+    </div>
+  `;
+  
+  c.innerHTML = html;
+}
+
+// ──────────────────────────────────────────────────────────
+// 헬퍼
+// ──────────────────────────────────────────────────────────
+function getEmoji(level) {
+  const map = {
+    CRASH_BUY: "🚀", STRONG_BUY: "📈", BUY: "💚", WATCH: "👀",
+    PANIC_BUY: "🚀", SHIFT_UP: "📈", CAUTION_UP: "🟢",
+    NEUTRAL: "⚪",
+    CAUTION_DOWN: "🟡", SHIFT_DOWN: "🔴",
+    CAUTION: "🟡", WARNING: "🔴", STRONG_SELL: "⚠️",
+  };
+  return map[level] || "⚪";
+}
+
+function renderIndicator(label, value, unit, precision, signed) {
+  if (value === null || value === undefined || isNaN(value)) {
+    return `<div class="indicator-item">
+      <div class="indicator-label">${label}</div>
+      <div class="indicator-value" style="color:#64748b;">-</div>
+    </div>`;
+  }
+  const num = parseFloat(value);
+  let cls = '';
+  if (signed) {
+    cls = num > 0 ? 'pos' : (num < 0 ? 'neg' : '');
+  }
+  let display = num.toFixed(precision);
+  if (signed && num > 0) display = '+' + display;
+  if (unit) display += unit;
+  return `<div class="indicator-item">
+    <div class="indicator-label">${label}</div>
+    <div class="indicator-value ${cls}">${display}</div>
+  </div>`;
+}
+
+function renderPillar(letter, score, label) {
+  const s = score || 0;
+  const cls = s >= 3 ? 's3' : s >= 2 ? 's2' : s >= 1 ? 's1' : 's0';
+  return `<div class="pillar-cell">
+    <div class="pillar-letter">${letter}</div>
+    <div class="pillar-score ${cls}">${s}</div>
+    <div class="pillar-label">${label}</div>
+  </div>`;
+}
+
+function renderBtRow(level, n, up, dn, currentLevel) {
+  const isCurrent = level === currentLevel;
+  return `<tr class="${isCurrent ? 'current' : ''}">
+    <td>${isCurrent ? '▶ ' : ''}${level}</td>
+    <td class="num">${n}</td>
+    <td class="num">${up}</td>
+    <td class="num">${dn}</td>
+  </tr>`;
+}
+
+function goToTab(page) {
+  document.querySelector(`.tab[data-page="${page}"]`).click();
+}
+
+// ──────────────────────────────────────────────────────────
+// 설정 모달
+// ──────────────────────────────────────────────────────────
+document.getElementById('settings-btn').addEventListener('click', () => {
+  const c = getConfig();
+  document.getElementById('cfg-user').value = c.user;
+  document.getElementById('cfg-repo').value = c.repo;
+  document.getElementById('cfg-branch').value = c.branch;
+  document.getElementById('settings-modal').classList.add('show');
+});
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('show');
+}
+
+function saveSettings() {
+  const user = document.getElementById('cfg-user').value.trim() || DEFAULT_USER;
+  const repo = document.getElementById('cfg-repo').value.trim() || DEFAULT_REPO;
+  const branch = document.getElementById('cfg-branch').value.trim() || DEFAULT_BRANCH;
+  localStorage.setItem('v12_user', user);
+  localStorage.setItem('v12_repo', repo);
+  localStorage.setItem('v12_branch', branch);
+  closeSettings();
+  fetchData();
+}
+
+document.getElementById('settings-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'settings-modal') closeSettings();
+});
+
+// ──────────────────────────────────────────────────────────
+// 새로고침
+// ──────────────────────────────────────────────────────────
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  document.getElementById('refresh-btn').textContent = '⏳';
+  fetchData().finally(() => {
+    setTimeout(() => {
+      document.getElementById('refresh-btn').textContent = '🔄';
+    }, 500);
+  });
+});
+
+// 풀다운 새로고침 (모바일)
+let touchStartY = 0;
+let pullDistance = 0;
+document.addEventListener('touchstart', (e) => {
+  if (window.scrollY === 0) touchStartY = e.touches[0].clientY;
+});
+document.addEventListener('touchmove', (e) => {
+  if (window.scrollY === 0 && touchStartY > 0) {
+    pullDistance = e.touches[0].clientY - touchStartY;
+  }
+});
+document.addEventListener('touchend', () => {
+  if (pullDistance > 100) {
+    document.getElementById('refresh-btn').click();
+  }
+  touchStartY = 0; pullDistance = 0;
+});
+
+// ──────────────────────────────────────────────────────────
+// PWA Service Worker
+// ──────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js').catch(() => {});
+}
+
+// 초기 로딩
+fetchData();
+
+// 5분마다 자동 새로고침
+setInterval(fetchData, 5 * 60 * 1000);
 </script>
+
 </body>
 </html>
