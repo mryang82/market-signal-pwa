@@ -6,7 +6,7 @@
 // 4. 정적 자산도 네트워크 우선 (변경 즉시 반영)
 // 5. data_unified.json은 항상 네트워크 우선
 
-const CACHE_VERSION = 'v13.2.0';  // Walk-Forward 검증 + 슈퍼 매수 신호 추가
+const CACHE_VERSION = 'v13.3.0';  // ★★ 나스닥 -10% 첫 진입 보조 신호 추가
 const CACHE_NAME = `signal-${CACHE_VERSION}`;
 
 const ASSETS = [
