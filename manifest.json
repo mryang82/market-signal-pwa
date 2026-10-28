@@ -1,8 +1,8 @@
 {
-  "name": "Market Signal v13",
-  "short_name": "Signal v13",
-  "description": "통합 시장 신호 모니터 (Walk-Forward 검증 v13.2)",
-  "version": "13.2.0",
+  "name": "Market Signal v14",
+  "short_name": "Signal v14",
+  "description": "큰 하락·큰 상승 대비 시장 신호 (추세 방어 + 투매 매수, v14)",
+  "version": "14.2.1",
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",

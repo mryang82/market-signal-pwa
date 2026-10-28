@@ -6,16 +6,16 @@
 <meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Signal v13">
+<meta name="apple-mobile-web-app-title" content="Signal v14">
 <!-- 캐시 무효화: 매번 최신 index.html 받기 (service-worker가 정적 자산 캐시) -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <link rel="manifest" href="manifest.json?v=13">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Market Signal v13</title>
+<title>Market Signal v14</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="14.2.0">
+<meta name="app-version" content="14.2.1">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1153,13 +1153,13 @@ function renderMain() {
 // 표시 우선순위:
 //   1. v8 CRASH_BUY (★★★, 100% 적중, 희귀)
 //   2. v8 STRONG_BUY + v2 PANIC_BUY (★★★★ 슈퍼 매수)
-//      - 12M+15% 적중 74.4%, 평균 +25%, 표본 227건
+//      - (구 수치 폐기, 2026-10-28 사건 단위 재검증으로 대체)
 //      - 시기 분산: 2001, 2002, 2008, 2009, 2020, 2022
 //   3. v8 STRONG_BUY 단독 (★★★, 92.5% 방향)
 //      - Walk-Forward 5/6 구간 100% 적중
 //
 //   참고 배지 (★★):
-//     - v2 PANIC_BUY 단독 (3M+10% 56%)
+//     - v2 PANIC_BUY 단독
 //     - v2 SHIFT_DOWN 단독 (3M-10% 42%, 시기 변동성 큼)
 //
 //   제거된 신호 (Walk-Forward 검증 실패):
