@@ -6,7 +6,7 @@
 // 4. 정적 자산도 네트워크 우선 (변경 즉시 반영)
 // 5. data_unified.json은 항상 네트워크 우선
 
-const CACHE_VERSION = 'v14.0.0';  // 추세 방어 모드(10개월선) 카드, 현금 0~40% 카드 제거
+const CACHE_VERSION = 'v14.1.0';  // STRONG_BUY 사건 단위 수치, ★★★★ 통합, 방어 모드 연동
 const CACHE_NAME = `signal-${CACHE_VERSION}`;
 
 const ASSETS = [

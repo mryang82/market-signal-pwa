@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v13</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="14.0.0">
+<meta name="app-version" content="14.1.0">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1029,7 +1029,7 @@ function renderMain() {
   const emoji = getEmoji(primaryLevel);
   
   // 강력 신호 배너 (검증된 최강 신호 - 상단 최우선 표시)
-  let html = renderStrongSignalBanners(long?.level, short?.level, conflict);
+  let html = renderStrongSignalBanners(long?.level, short?.level, conflict, short?.trend_defense);
   html += renderNdxDdBadge(short?.ndx_dd);
   html += renderLongWatchBadges(long);
   html += renderTrendDefense(short?.trend_defense);
@@ -1166,8 +1166,12 @@ function renderMain() {
 //     - 충돌 신호: 2008 이전 의존, 2011 이후 16년간 0~15%만 적중
 //     - "매수 합의" 단독: Walk-Forward 1/6 구간만 안정
 // ──────────────────────────────────────────────────────────
-function renderStrongSignalBanners(longLevel, shortLevel, conflict) {
+function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
   let html = '';
+  // 방어 모드 중이면 매수 신호라도 비중 50% 유지 (2008년: 투매 신호 후 전량 매수 시 -50%)
+  const defIdx = trend && trend.indexes ? Object.values(trend.indexes).filter(x => x.mode === "DEFENSE").map(x => x.name) : [];
+  const defNote = defIdx.length
+    ? `<div class="ssb-footer" style="color:#fbbf24;">🛡️ ${defIdx.join('·')} 방어 모드 중 — 비중 50% 유지, 그 안에서 분할 매수</div>` : '';
   
   const LONG_BUY = ["CRASH_BUY", "STRONG_BUY", "BUY", "WATCH"];
   const SHORT_BUY = ["PANIC_BUY", "SHIFT_UP", "CAUTION_UP"];
@@ -1182,36 +1186,25 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict) {
           <span class="ssb-tag">★★★★ 역사적 매수 기회</span>
         </div>
         <div class="ssb-title">💎 v8 CRASH_BUY</div>
-        <div class="ssb-desc">극단 패닉 매수 신호 — 12M+15% 적중률 <strong>100%</strong></div>
-        <div class="ssb-footer">📊 표본 2건 · 평균 12M +73% · 풀투자 권장</div>
+        <div class="ssb-desc">극단 패닉 매수 신호 — 과거 2건 모두 12M +15% 이상</div>
+        <div class="ssb-footer">📊 표본 2건 (희귀, 통계적 근거 약함) · 분할 매수</div>
+        ${defNote}
       </div>
     `;
   }
-  // ★★★★ 2) v8 STRONG_BUY + v2 PANIC_BUY — 위기 직후 매수 (검증된 슈퍼 신호)
-  else if (longLevel === "STRONG_BUY" && shortLevel === "PANIC_BUY") {
-    html += `
-      <div class="strong-signal-banner buy">
-        <div class="ssb-header">
-          <div class="ssb-pulse"></div>
-          <span class="ssb-tag">★★★★ 슈퍼 매수 신호</span>
-        </div>
-        <div class="ssb-title">🚀 STRONG_BUY + PANIC_BUY 합의</div>
-        <div class="ssb-desc">위기 직후 매수 — 12M+15% 적중률 <strong>74.4%</strong>, 평균 +25%</div>
-        <div class="ssb-footer">📊 표본 227건 · 6개 위기 검증 (2001, 2008, 2020 등) · 풀투자</div>
-      </div>
-    `;
-  }
-  // ★★★ 3) v8 STRONG_BUY 단독
+  // ★★★ 2) v8 STRONG_BUY (PANIC_BUY 동반 여부 무관 — 사건 단위 재검증 2026-10-28: 둘은 사실상 같은 신호)
   else if (longLevel === "STRONG_BUY") {
+    const withPanic = shortLevel === "PANIC_BUY" ? " · 단기 PANIC_BUY 동반" : "";
     html += `
       <div class="strong-signal-banner buy">
         <div class="ssb-header">
           <div class="ssb-pulse"></div>
-          <span class="ssb-tag">★★★ 최강 매수 신호</span>
+          <span class="ssb-tag">★★★ 투매 구간 매수 신호</span>
         </div>
-        <div class="ssb-title">💚 v8 STRONG_BUY</div>
-        <div class="ssb-desc">12M 방향 적중 <strong>92.5%</strong> · 12M+15% 적중 <strong>72%</strong></div>
-        <div class="ssb-footer">📊 표본 254건 · 평균 12M +25% · Walk-Forward 5/6 구간 100%</div>
+        <div class="ssb-title">💚 v8 STRONG_BUY${withPanic}</div>
+        <div class="ssb-desc">2011~2026 독립 사건 <strong>8회 중 7회</strong> 12개월 +15% (아무 날 46%) · 8회 모두 12개월 뒤 상승</div>
+        <div class="ssb-footer">📊 실패 2022-05 (+3.7%) · 신호 후 추가 하락 최대 -18% (2020-03) → 분할 매수</div>
+        ${defNote}
       </div>
     `;
   }
@@ -1539,8 +1532,8 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
       icon: "🚀",
       title: "극단 패닉 매수",
       desc: "역사적 진입 기회. 분할 매수 권장 (3~4회 분할).",
-      confidence: { level: "high", value: 56, label: "높음" },
-      backtest: "단독 PANIC_BUY 3M+10% 적중률 56% · n=293",
+      confidence: { level: "high", value: 75, label: "높음 (표본 작음)" },
+      backtest: "PANIC_BUY 독립 사건 12회 중 9회 12M+15% (기준선 46%) · 2011-2026",
     };
   }
   
@@ -1552,7 +1545,7 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
       title: "매수 합의 — 진입",
       desc: "장기 강세 + 단기 모멘텀 양호. 분할 매수 시작.",
       confidence: { level: "high", value: 55, label: "높음" },
-      backtest: "장단기 매수 합의 12M+15% 적중률 55% · n=944",
+      backtest: "장단기 매수 합의 12M+15% 55% (일 단위, 미재검증) · 참고용",
     };
   }
   
@@ -1598,8 +1591,8 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
       icon: "💚",
       title: "장기 분할 매수",
       desc: "장기 매수 신호 강함. 단기 신호 무관 분할 매수 가능.",
-      confidence: { level: "high", value: 80, label: "매우 높음" },
-      backtest: "STRONG_BUY 12M+15% 적중률 80% · n=222",
+      confidence: { level: "high", value: 80, label: "높음 (표본 작음)" },
+      backtest: "STRONG_BUY 독립 사건 8회 중 7회 12M+15% (기준선 46%) · 2011-2026",
     };
   }
   
@@ -2080,16 +2073,16 @@ function renderLong() {
   // 장기 백테스트 정확도
   html += `
     <div class="card">
-      <div class="card-title">🎯 v8 백테스트 적중률 <span class="card-hint">12M endpoint ±15% · n=7,392</span></div>
+      <div class="card-title">🎯 v8 백테스트 (사건 단위) <span class="card-hint">2011-2026 · 12M +15% 달성</span></div>
       <table class="bt-table">
-        <thead><tr><th>레벨</th><th>n</th><th class="num">12M +15% 적중</th><th class="num">평균 12M</th></tr></thead>
+        <thead><tr><th>레벨</th><th>n</th><th class="num">12M +15% 적중</th><th class="num">사건 평균 12M</th></tr></thead>
         <tbody>
-          ${renderBtRow('CRASH_BUY', 3, '100.0%', '+70.6%', long.level)}
-          ${renderBtRow('STRONG_BUY', 222, '79.7%', '+27.8%', long.level)}
-          ${renderBtRow('BUY', 538, '36.6%', '+2.9%', long.level)}
-          ${renderBtRow('WATCH', 527, '36.6%', '-0.2%', long.level)}
+          ${renderBtRow('STRONG_BUY+', '8회', '87.5%', '+21.3%', long.level)}
+          ${renderBtRow('BUY', '16회', '56.2%', '+17.4%', long.level)}
+          ${renderBtRow('아무 날', '-', '45.8%', '+13.3%', long.level)}
         </tbody>
       </table>
+      <div style="font-size:11px;color:#94a3b8;margin-top:6px;">사건 = 신호일 간격 40거래일 초과 시 새 사건. HY는 2023 이전 추정치. 단순 규칙 VIX≥30(10회 중 8회)과 차이는 증명 안 됨.</div>
     </div>
   `;
   
