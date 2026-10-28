@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v13</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="13.5.0">
+<meta name="app-version" content="14.0.0">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1032,6 +1032,7 @@ function renderMain() {
   let html = renderStrongSignalBanners(long?.level, short?.level, conflict);
   html += renderNdxDdBadge(short?.ndx_dd);
   html += renderLongWatchBadges(long);
+  html += renderTrendDefense(short?.trend_defense);
   
   html += `
     <div class="status-big level-${primaryLevel}">
@@ -1103,8 +1104,7 @@ function renderMain() {
   // F&G 게이지 (참고용)
   html += renderFGGauge(long);
   
-  // 현금 비중 카드 (검증된 신호 기반)
-  html += renderCashAllocation(long?.level, short?.level, conflict, short?.context_alerts || []);
+  // (v14) 현금 0~40% 카드 제거 — 2011-2026 백테스트에서 현금 10% 고정과 차이 없음. 추세 방어 카드로 대체.
   
   // 활성 컨텍스트 알람 요약
   const alerts = short?.context_alerts || [];
@@ -1924,6 +1924,52 @@ function renderCashAllocation(longLevel, shortLevel, conflict, contextAlerts) {
             <span class="cash-reason-value ${r.positive ? 'positive' : (r.value.startsWith('-') ? 'negative' : '')}">${r.value}</span>
           </div>
         `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ──────────────────────────────────────────────────────────
+// 추세 방어 모드 (v14): 월말 종가 vs 10개월선, 지수별 판정
+// ──────────────────────────────────────────────────────────
+function renderTrendDefense(td) {
+  if (!td || !td.indexes) {
+    return `<div class="card cash-card"><div class="cash-header"><span class="fg-title">🛡️ 추세 방어 모드</span><span class="cash-profile">데이터 대기</span></div></div>`;
+  }
+  const rows = Object.values(td.indexes).map(x => {
+    const def = x.mode === "DEFENSE";
+    const color = def ? "#fb923c" : "#22c55e";
+    const label = def ? "방어 모드" : "정상";
+    const flip = x.flip_risk
+      ? `<div style="margin-top:6px;font-size:12px;color:#fbbf24;">⚠️ 이번 달 진행 중 ${x.live_gap_pct >= 0 ? "+" : ""}${x.live_gap_pct.toFixed(1)}% — 월말까지 이대로면 <b>${x.live_mode === "DEFENSE" ? "방어 모드 전환" : "정상 복귀"}</b></div>`
+      : `<div style="margin-top:6px;font-size:12px;color:#94a3b8;">이번 달 진행 중 ${x.live_gap_pct >= 0 ? "+" : ""}${x.live_gap_pct.toFixed(1)}% (${x.live_date}) · 판정 유지 예상</div>`;
+    return `
+      <div style="padding:10px 0;border-top:1px solid rgba(148,163,184,0.15);">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-weight:600;">${x.name}</span>
+          <span style="color:${color};font-weight:700;">${label} · 주식 ${x.equity_pct}%</span>
+        </div>
+        <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">
+          ${x.decided_month} 월말 ${Math.round(x.month_close).toLocaleString()} · 10개월선 ${Math.round(x.sma10).toLocaleString()} (${x.gap_pct >= 0 ? "+" : ""}${x.gap_pct.toFixed(1)}%)
+        </div>
+        ${flip}
+      </div>`;
+  }).join('');
+  const bt = td.backtest || {};
+  return `
+    <div class="card cash-card">
+      <div class="cash-header">
+        <span class="fg-title" style="white-space:nowrap;">🛡️ 추세 방어</span>
+        <span class="cash-profile">다음 판정 ${td.next_decision || ""}</span>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${td.rule}</div>
+      ${rows}
+      <div class="cash-reasons" style="margin-top:8px;">
+        <div class="cash-reasons-label">장기 검증</div>
+        <div class="cash-reason-row"><span class="cash-reason-text">S&amp;P ${bt.SPX || ""}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">나스닥 ${bt.NDX || ""}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">비용: ${bt.cost || ""}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">한계: ${bt.limit || ""}</span></div>
       </div>
     </div>
   `;
