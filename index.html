@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v13</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="13.3.0">
+<meta name="app-version" content="13.4.0">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1006,8 +1006,8 @@ function renderMain() {
     primarySub = "역사적 진입 기회";
   } else if (short?.level === "SHIFT_DOWN") {
     primaryLevel = "SHIFT_DOWN";
-    primaryLabel = "단기 매도 신호";
-    primarySub = "3M-10% 적중률 43%";
+    primaryLabel = "낙폭 위험 경고 (강)";
+    primarySub = "3개월 내 -10% 확률 27% (평소 12%) · 매도 권고 아님";
   } else if (long?.level === "STRONG_BUY") {
     primaryLevel = "STRONG_BUY";
     primaryLabel = "장기 강력 매수";
@@ -1022,8 +1022,8 @@ function renderMain() {
     primarySub = "추세 양호";
   } else if (short?.level === "CAUTION_DOWN") {
     primaryLevel = "CAUTION_DOWN";
-    primaryLabel = "비중 조절 검토";
-    primarySub = "3M-10% 적중률 32%";
+    primaryLabel = "낙폭 위험 경고";
+    primarySub = "3개월 내 -10% 확률 23% (평소 12%) · 매도 권고 아님";
   }
   
   const emoji = getEmoji(primaryLevel);
@@ -1237,8 +1237,8 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict) {
       <div class="minor-signal-badge sell">
         <div class="msb-icon">📉</div>
         <div class="msb-body">
-          <div class="msb-title">★★ v2 SHIFT_DOWN 발효</div>
-          <div class="msb-desc">단기 매도 신호 · 3M-10% 적중 <strong>42%</strong> · 시기별 0~60% 변동</div>
+          <div class="msb-title">★★ 낙폭 위험 경고 (강) · SHIFT_DOWN</div>
+          <div class="msb-desc">3개월 내 -10% 하락 확률 <strong>26.5%</strong> (평소 12.1%) · 이후 수익은 평소 이상이라 매도 권고 아님</div>
         </div>
       </div>
     `;
@@ -1303,13 +1303,13 @@ function getCyclePosition(longLevel, shortLevel) {
   if (longBuyWeak && (shortBuyMid || shortBuyWeak)) return { pos: 2, name: "강세 확장", desc: "추세 양호" };
   if (longBuyWeak && shortLevel === "NEUTRAL") return { pos: 3, name: "안주", desc: "변동성 낮음" };
   if (longSell && shortLevel === "NEUTRAL") return { pos: 4, name: "정점 영역", desc: "추세 약화 신호" };
-  if (longSell && shortSellWeak) return { pos: 5, name: "초기 하락", desc: "비중 조절 검토" };
+  if (longSell && shortSellWeak) return { pos: 5, name: "초기 하락", desc: "낙폭 위험 경고" };
   if (longSell && shortSellStrong) return { pos: 6, name: "하락 가속", desc: "방어 자세" };
   if (longBuyStrong && shortSellStrong) return { pos: 5, name: "초기 하락", desc: "장단기 충돌" };
   if (longSell && shortBuyStrong) return { pos: 7, name: "베어 바닥", desc: "반등 시도" };
   
   // 기본값 (NEUTRAL/NEUTRAL 등)
-  if (shortSellStrong) return { pos: 6, name: "하락 가속", desc: "단기 매도 신호" };
+  if (shortSellStrong) return { pos: 6, name: "변동 확대", desc: "낙폭 위험 경고 (강)" };
   if (shortSellWeak) return { pos: 5, name: "초기 하락", desc: "주의 단계" };
   if (shortBuyStrong) return { pos: 0, name: "패닉 바닥", desc: "단기 패닉 매수" };
   if (shortBuyMid) return { pos: 2, name: "강세 확장", desc: "단기 매수 진입" };
@@ -1342,7 +1342,7 @@ function renderMarketCycle(longLevel, shortLevel) {
     "→ 안주 / 정점 (모멘텀 약화 시)",
     "→ 정점 영역 (장기 약화 시)",
     "→ 초기 하락 (단기 매도 발효 시)",
-    "→ 하락 가속 (SHIFT_DOWN 발효 시)",
+    "→ 변동 확대 (SHIFT_DOWN 발효 시)",
     "→ 베어 바닥 (단기 패닉 도달 시)",
     "→ 회복 (장기 매수 신호 시)",
   ];
@@ -1431,7 +1431,7 @@ function renderSignalGauges(long, short) {
   } else if (shortScore >= 30) {
     summary = "단기 매수 시도 (장기 대기)";
   } else if (shortScore <= -30) {
-    summary = "단기 매도 — 비중 조절";
+    summary = "단기 낙폭 위험 경고 — 매도 권고 아님";
   } else if (longScore <= -30) {
     summary = "장기 약한 매도 — 관망";
   } else {
@@ -1468,7 +1468,7 @@ function renderSignalGauges(long, short) {
           <div class="gauge-marker ${gaugeMarkerClass(shortScore)}" style="left: ${shortPct}%;"></div>
         </div>
         <div class="gauge-scale">
-          <span>매도 강함</span>
+          <span>낙폭 위험</span>
           <span>중립</span>
           <span>매수 강함</span>
         </div>
@@ -1533,10 +1533,10 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
     return {
       type: "do-sell",
       icon: "📉",
-      title: "단기 비중 축소",
-      desc: "단기 모멘텀 매도. 20~30% 비중 축소 검토.",
-      confidence: { level: "medium", value: 43, label: "중간" },
-      backtest: "SHIFT_DOWN 3M-10% 적중률 43% · n=334",
+      title: "낙폭 위험 경고 (강)",
+      desc: "큰 변동 구간. 매도 권고 아님 — 신규 매수는 분할로, 레버리지 자제.",
+      confidence: { level: "medium", value: 27, label: "중간" },
+      backtest: "SHIFT_DOWN 3개월 내 -10% 하락 26.5% (평소 12.1%) · n=170 · 2011-2026",
     };
   }
   
@@ -1544,10 +1544,10 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
     return {
       type: "do-wait",
       icon: "🟡",
-      title: "비중 조절 검토",
-      desc: "단기 약세 신호. 신규 매수 자제, 기존 포지션 점검.",
-      confidence: { level: "medium", value: 32, label: "중간" },
-      backtest: "CAUTION_DOWN 3M-10% 적중률 32% · n=877",
+      title: "낙폭 위험 경고",
+      desc: "낙폭 위험이 평소의 약 2배. 매도 권고 아님 — 신규 매수는 분할로.",
+      confidence: { level: "medium", value: 23, label: "중간" },
+      backtest: "CAUTION_DOWN 3개월 내 -10% 하락 22.8% (평소 12.1%) · n=381 · 2011-2026",
     };
   }
   
@@ -1784,11 +1784,11 @@ function computeCashAllocation(longLevel, shortLevel, conflict, contextAlerts) {
   
   // 단기 매도
   if (shortLevel === "SHIFT_DOWN") {
-    cash = 30;
-    reasons.push({text: "v2 SHIFT_DOWN (42% 적중)", value: "+20%p", positive: true});
+    cash = 20;
+    reasons.push({text: "v2 SHIFT_DOWN 낙폭 위험 (26.5%, 평소 12%)", value: "+10%p", positive: true});
   } else if (shortLevel === "CAUTION_DOWN") {
     cash = 20;
-    reasons.push({text: "v2 CAUTION_DOWN (38% 적중)", value: "+10%p", positive: true});
+    reasons.push({text: "v2 CAUTION_DOWN 낙폭 위험 (22.8%, 평소 12%)", value: "+10%p", positive: true});
   }
   
   // 충돌 (장기 매수 + 단기 매도) — 시기 의존성 큼, 가중치 축소
@@ -2137,10 +2137,11 @@ function renderShort() {
           ${renderBtRow('PANIC_BUY', 293, '55.6%', '-', short.level)}
           ${renderBtRow('SHIFT_UP', 689, '48.9%', '-', short.level)}
           ${renderBtRow('CAUTION_UP', 753, '31.1%', '-', short.level)}
-          ${renderBtRow('CAUTION_DOWN', 877, '-', '31.8%', short.level)}
-          ${renderBtRow('SHIFT_DOWN', 334, '-', '42.8%', short.level)}
+          ${renderBtRow('CAUTION_DOWN', 381, '-', '22.8%*', short.level)}
+          ${renderBtRow('SHIFT_DOWN', 170, '-', '26.5%*', short.level)}
         </tbody>
       </table>
+      <div class="card-hint" style="margin-top:6px;">* 매도 행: 2011-2026 재검증(2026-10-28), 3개월 내 SPX -10% 하락 경험 확률 · 평소 12.1% · 매도 권고 아닌 낙폭 위험 경고</div>
     </div>
   `;
   
