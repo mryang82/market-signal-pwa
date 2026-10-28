@@ -6,7 +6,7 @@
 // 4. 정적 자산도 네트워크 우선 (변경 즉시 반영)
 // 5. data_unified.json은 항상 네트워크 우선
 
-const CACHE_VERSION = 'v13.4.0';  // 단기 매도 신호 → 낙폭 위험 경고 재정의, SKEW 트리거 제거
+const CACHE_VERSION = 'v13.5.0';  // STRONG_BUY 근접도 + LATE_CYCLE 전환 감시 표시
 const CACHE_NAME = `signal-${CACHE_VERSION}`;
 
 const ASSETS = [

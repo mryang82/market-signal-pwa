@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v13</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="13.4.0">
+<meta name="app-version" content="13.5.0">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1031,6 +1031,7 @@ function renderMain() {
   // 강력 신호 배너 (검증된 최강 신호 - 상단 최우선 표시)
   let html = renderStrongSignalBanners(long?.level, short?.level, conflict);
   html += renderNdxDdBadge(short?.ndx_dd);
+  html += renderLongWatchBadges(long);
   
   html += `
     <div class="status-big level-${primaryLevel}">
@@ -1279,6 +1280,45 @@ function renderNdxDdBadge(n) {
     `;
   }
   return '';
+}
+
+// ──────────────────────────────────────────────────────────
+// 장기 근접도 + LATE_CYCLE 감시 (2026-10-28)
+// ──────────────────────────────────────────────────────────
+function renderLongWatchBadges(l) {
+  if (!l) return '';
+  let html = '';
+  const p = l.proximity;
+  if (p && (p.next_level === 'STRONG_BUY' || p.next_level === 'CRASH_BUY') && p.gap !== null && p.gap <= 1.0) {
+    html += `
+      <div class="minor-signal-badge buy">
+        <div class="msb-icon">🎯</div>
+        <div class="msb-body">
+          <div class="msb-title">${p.next_level}까지 ${p.gap.toFixed(1)}점</div>
+          <div class="msb-desc">현재 ${l.level} ${l.score >= 0 ? '+' : ''}${Number(l.score).toFixed(1)} · 기준 ${p.next_threshold}</div>
+        </div>
+      </div>`;
+  }
+  if (p && p.capped) {
+    html += `
+      <div class="minor-signal-badge">
+        <div class="msb-icon">🔒</div>
+        <div class="msb-body"><div class="msb-desc">${p.capped}</div></div>
+      </div>`;
+  }
+  const lc = l.late_cycle;
+  if (lc && lc.status !== 'NONE') {
+    const active = lc.status === 'ACTIVE';
+    html += `
+      <div class="minor-signal-badge ${active ? 'sell' : ''}">
+        <div class="msb-icon">${active ? '🟠' : '🟡'}</div>
+        <div class="msb-body">
+          <div class="msb-title">${active ? '후기 사이클(LATE_CYCLE) 진입' : 'LATE_CYCLE 전환 임박'}</div>
+          <div class="msb-desc">HY ${lc.hy}bp (기준 ${lc.hy_threshold}) · 2s10s ${lc.yc >= 0 ? '+' : ''}${Number(lc.yc).toFixed(2)}% (기준 ${lc.yc_threshold}) · 점수 가중치 변화일 뿐 매도 신호 아님</div>
+        </div>
+      </div>`;
+  }
+  return html;
 }
 
 // ──────────────────────────────────────────────────────────
