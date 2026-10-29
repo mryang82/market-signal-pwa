@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v14</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="14.3.0">
+<meta name="app-version" content="14.3.1">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1018,7 +1018,7 @@ function renderMain() {
     primaryLabel = "투매 구간 매수";
     primarySub = long.level === "CRASH_BUY"
       ? "CRASH_BUY 과거 2건 (표본 부족) · 분할 매수"
-      : "독립 사건 8회 중 7회 12M+15% (아무 날 46%) · 분할 매수";
+      : "2011~ 사건 8회 중 7회 12M+15% · 2000년대 약세장 5회는 실패 · 분할 매수";
   } else if (ndxActive) {
     primaryLevel = "STRONG_BUY";
     primaryLabel = "나스닥 -10% 첫 진입 (★★)";
@@ -1218,7 +1218,7 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
           <span class="ssb-tag">★★★ 투매 구간 매수 신호</span>
         </div>
         <div class="ssb-title">💚 v8 STRONG_BUY${withPanic}</div>
-        <div class="ssb-desc">2011~2026 독립 사건 <strong>8회 중 7회</strong> 12개월 +15% (아무 날 46%) · 8회 모두 12개월 뒤 상승</div>
+        <div class="ssb-desc">2011~2026 독립 사건 <strong>8회 중 7회</strong> 12개월 +15% (아무 날 46%) · 1998~로 넓히면 13회 중 7회 (2001·2008 약세장 5회 실패)</div>
         <div class="ssb-footer">📊 실패 2022-05 (+3.7%) · 신호 후 추가 하락 최대 -18% (2020-03) → 분할 매수</div>
         ${defNote}
       </div>
@@ -1562,7 +1562,7 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
       title: "장기 분할 매수",
       desc: "투매 구간. 분할 매수 (신호 후 추가 하락 최대 -18%). 방어 모드 중이면 주식 50% 안에서만.",
       confidence: { level: "high", value: 80, label: "높음 (표본 작음)" },
-      backtest: "STRONG_BUY 독립 사건 8회 중 7회 12M+15% (기준선 46%) · 2011-2026",
+      backtest: "STRONG_BUY 2011-2026 사건 8회 중 7회 12M+15% (기준선 46%) · 1998~ 13회 중 7회, 2001·2008 약세장 5회 실패",
     };
   }
   
@@ -1969,7 +1969,7 @@ function renderLong() {
     <div class="card">
       <div class="card-title">ℹ️ 장기 모델 설명</div>
       <div style="font-size:13px; color:#94a3b8; line-height:1.6;">
-        장기 v8 모델은 <b style="color:#22c55e;">투매 구간 매수</b>에만 근거가 있습니다 (STRONG_BUY 독립 사건 8회 중 7회 12M +15%, 아무 날 46%).<br><br>
+        장기 v8 모델은 <b style="color:#22c55e;">투매 구간 매수</b>에만 근거가 있습니다 (STRONG_BUY 2011~2026 독립 사건 8회 중 7회 12M +15%, 아무 날 46% · 2001·2008 약세장에서는 5회 모두 실패).<br><br>
         ⚠️ v8 매도 신호는 정보가 없어 <b>운영에서 제외</b>했습니다. 큰 하락 대비는 상단의 <b>🛡️ 추세 방어</b>(월말 10개월선)를 따르세요.
       </div>
     </div>
