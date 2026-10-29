@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v14</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="14.3.1">
+<meta name="app-version" content="14.3.2">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1022,7 +1022,7 @@ function renderMain() {
   } else if (ndxActive) {
     primaryLevel = "STRONG_BUY";
     primaryLabel = "나스닥 -10% 첫 진입 (★★)";
-    primarySub = "21회 · 60일 평균 +11% (기준선 +4%) · 분할 매수";
+    primarySub = "2011~ 21회 60일 +11% (기준선 +4%) · 1986~ 51회 +7% (+4%) · 약세장 초입 실패 · 분할 매수";
   } else if (short?.level === "PANIC_BUY") {
     primaryLevel = "PANIC_BUY";
     primaryLabel = "투매 신호 (단기)";
@@ -1272,7 +1272,8 @@ function renderNdxDdBadge(n) {
         <div class="msb-body">
           <div class="msb-title">★★ 나스닥 -10% 첫 진입 (${n.last_event_date})</div>
           <div class="msb-desc">NDX ${fmt(n.ndx)} · 52주 고점 대비 <strong>${n.dd_pct.toFixed(1)}%</strong> · 과거 ${bt.events}회 60일 후 평균 <strong>+${bt.f60_mean}%</strong> (기준선 +${bt.f60_base}%)</div>
-          <div class="msb-desc" style="color:#f59e0b;">약세장 초입 가능 (2022-01: 진입 후 최대 -28%) → 분할 매수 전제</div>
+          <div class="msb-desc">${bt.long ? '장기 ' + bt.long : ''}</div>
+          <div class="msb-desc" style="color:#f59e0b;">약세장 초입에서 실패 (2000·2007·2022: 12개월 -20~-66%) → 분할 매수, 월말 방어 모드 전환 시 50%로</div>
         </div>
       </div>
     `;
