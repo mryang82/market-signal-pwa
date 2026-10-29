@@ -6,7 +6,7 @@
 // 4. 정적 자산도 네트워크 우선 (변경 즉시 반영)
 // 5. data_unified.json은 항상 네트워크 우선
 
-const CACHE_VERSION = 'v14.3.2';  // 나스닥 -10% 신호 장기(1986~) 수치·약세장 초입 실패 병기
+const CACHE_VERSION = 'v14.3.3';  // PANIC_BUY 장기(1990~) 수치 병기
 const CACHE_NAME = `signal-${CACHE_VERSION}`;
 
 const ASSETS = [

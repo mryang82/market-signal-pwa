@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v14</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="14.3.2">
+<meta name="app-version" content="14.3.3">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -1026,7 +1026,7 @@ function renderMain() {
   } else if (short?.level === "PANIC_BUY") {
     primaryLevel = "PANIC_BUY";
     primaryLabel = "투매 신호 (단기)";
-    primarySub = "사건 12회 중 9회 12M+15% (아무 날 46%) · 분할 매수";
+    primarySub = "2011~ 12회 중 9회 · 1990~ 26회 중 14회 (2000년대 약세장 11회 중 2회) · 분할 매수";
   } else if (short?.level === "SHIFT_DOWN") {
     primaryLevel = "SHIFT_DOWN";
     primaryLabel = "낙폭 위험 경고 (강)";
@@ -1235,7 +1235,7 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
         <div class="msb-icon">🚀</div>
         <div class="msb-body">
           <div class="msb-title">★★ v2 PANIC_BUY 발효</div>
-          <div class="msb-desc">단기 패닉 매수 · 독립 사건 12회 중 9회 12M+15% (아무 날 46%)</div>
+          <div class="msb-desc">단기 패닉 매수 · 2011~ 12회 중 9회 12M+15% (아무 날 46%) · 1990~ 26회 중 14회, 2000년대 약세장에선 대부분 실패</div>
         </div>
       </div>
     `;
@@ -1551,7 +1551,7 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
       desc: "분할 매수 (3~4회). 방어 모드 중이면 주식 50% 안에서만.",
       confidence: { level: "high", value: 75, label: "높음 (표본 작음)" },
       backtest: longLevel === "CRASH_BUY" ? "CRASH_BUY 과거 2건 — 통계 근거 약함"
-                : "PANIC_BUY 독립 사건 12회 중 9회 12M+15% (기준선 46%) · 2011-2026",
+                : "PANIC_BUY 2011-2026 12회 중 9회 12M+15% (기준선 46%) · 1990~ 26회 중 14회 (기준선 39%), 2000-2010 11회 중 2회",
     };
   }
   
