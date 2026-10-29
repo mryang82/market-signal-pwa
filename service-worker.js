@@ -6,7 +6,7 @@
 // 4. 정적 자산도 네트워크 우선 (변경 즉시 반영)
 // 5. data_unified.json은 항상 네트워크 우선
 
-const CACHE_VERSION = 'v14.2.1';  // 앱 이름 v14, 옛 주석 정리
+const CACHE_VERSION = 'v14.3.0';  // 메인 카드 우선순위(추세 방어 우선), 데이터 상태 경고
 const CACHE_NAME = `signal-${CACHE_VERSION}`;
 
 const ASSETS = [
