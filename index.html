@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Market Signal v14</title>
 <!-- APP_VERSION: 변경 시 service-worker가 자동 갱신 감지 -->
-<meta name="app-version" content="14.3.3">
+<meta name="app-version" content="14.4.0">
 <style>
 /* ──────────────────────────────────────────────────────────
    Reset + Base
@@ -798,7 +798,7 @@ header {
 <header>
   <div class="header-row">
     <div>
-      <div class="title">Signal Monitor <span class="v" id="app-version-display">v13.1.0</span></div>
+      <div class="title">Signal Monitor <span class="v" id="app-version-display">v14.4.0</span></div>
       <div id="last-update" class="last-update">데이터 로딩 중...</div>
     </div>
     <div class="actions">
@@ -912,6 +912,44 @@ function getDataUrl() {
 
 // 상태
 let appData = null;
+let dataFromCache = false;   // 네트워크 실패로 마지막 성공 데이터를 보여주는 중
+const LAST_GOOD_KEY = 'v14_last_good_data';
+
+// ── 공통 헬퍼 (v14.4, 2026-11-03) ──
+// 데이터 문자열은 모두 이스케이프해서 innerHTML에 넣는다
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+// 숫자가 아니면 '-' (null 하나로 화면 전체가 깨지지 않게)
+function fmtNum(v, d = 1) {
+  const n = Number(v);
+  return (v === null || v === undefined || !isFinite(n)) ? '-' : n.toFixed(d);
+}
+function fmtPct(v, d = 1) {
+  const n = Number(v);
+  if (v === null || v === undefined || !isFinite(n)) return '-';
+  return (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+}
+function fmtInt(v) {
+  const n = Number(v);
+  return (v === null || v === undefined || !isFinite(n)) ? '-' : Math.round(n).toLocaleString('en-US');
+}
+// KST 기준 요일·시 (기기 시간대와 무관)
+function kstParts(d = new Date()) {
+  const k = new Date(d.getTime() + 9 * 3600e3);
+  return { y: k.getUTCFullYear(), mo: k.getUTCMonth(), day: k.getUTCDate(), wd: k.getUTCDay(), h: k.getUTCHours(), mi: k.getUTCMinutes() };
+}
+function kstLabel(d) {
+  const k = kstParts(d);
+  return `${k.mo + 1}월 ${k.day}일 ${String(k.h).padStart(2, '0')}:${String(k.mi).padStart(2, '0')} KST`;
+}
+// 오래된 데이터 기준: 평일 36h, 주말 공백(KST 일·월·화 정오 전) 72h — 백엔드 stale_limit_hours와 같은 규칙
+function staleLimitHours(now = new Date()) {
+  const k = kstParts(now);
+  const weekendGap = k.wd === 0 || k.wd === 1 || (k.wd === 2 && k.h < 12);
+  return weekendGap ? 72 : 36;
+}
+const SELL_LEVELS_V8 = ["CAUTION", "WARNING", "STRONG_SELL", "CRASH_WARNING"];  // v8 매도 등급: 운영 제외
 
 // ──────────────────────────────────────────────────────────
 // Tab 전환
@@ -934,45 +972,61 @@ async function fetchData() {
   try {
     const r = await fetch(getDataUrl(), { cache: 'no-cache' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    appData = await r.json();
+    const data = await r.json();
+    if (!data || typeof data !== 'object' || !data.timestamp) throw new Error('데이터 형식 오류');
+    appData = data;
+    dataFromCache = false;
+    try { localStorage.setItem(LAST_GOOD_KEY, JSON.stringify(data)); } catch (e) {}
     updateLastUpdate(true);
     render();
   } catch (err) {
     console.error(err);
-    updateLastUpdate(false, err.message);
-    renderError(err);
+    // 갱신 실패: 이미 보이는 화면은 지우지 않고 상단에만 표시 (v14.4)
+    if (!appData) {
+      try {
+        const cached = localStorage.getItem(LAST_GOOD_KEY);
+        if (cached) { appData = JSON.parse(cached); dataFromCache = true; render(); }
+      } catch (e) {}
+    }
+    updateLastUpdate(false, err && err.message);
+    if (!appData) renderError(err);
   }
+}
+
+function parseTs(s) {
+  if (!s) return null;
+  // 마이크로초(6자리)는 일부 브라우저(Safari)가 못 읽으므로 밀리초로 자름
+  const d = new Date(String(s).replace(/(\.\d{3})\d+/, '$1'));
+  return isNaN(d.getTime()) ? null : d;
 }
 
 function updateLastUpdate(success, errMsg) {
   const el = document.getElementById('last-update');
-  if (success && appData) {
-    const ts = appData.timestamp ? new Date(appData.timestamp) : null;
-    if (ts) {
-      const now = new Date();
-      const diffMin = Math.floor((now - ts) / 60000);
-      let timeStr;
-      if (diffMin < 60) timeStr = `${diffMin}분 전`;
-      else if (diffMin < 1440) timeStr = `${Math.floor(diffMin / 60)}시간 전`;
-      else timeStr = `${Math.floor(diffMin / 1440)}일 전`;
-      
-      const cls = diffMin < 1440 ? 'fresh' : 'stale';
-      el.className = `last-update ${cls}`;
-      el.textContent = `마지막 업데이트: ${ts.toLocaleString('ko-KR', { 
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
-      })} (${timeStr})`;
-    }
-  } else {
+  const ts = appData ? parseTs(appData.timestamp) : null;
+  if (!ts) {
     el.className = 'last-update error';
     el.textContent = `❌ 데이터 로딩 실패${errMsg ? ': ' + errMsg : ''}`;
+    return;
   }
+  const diffMin = Math.floor((Date.now() - ts.getTime()) / 60000);
+  let timeStr;
+  if (diffMin < 60) timeStr = `${Math.max(diffMin, 0)}분 전`;
+  else if (diffMin < 1440) timeStr = `${Math.floor(diffMin / 60)}시간 전`;
+  else timeStr = `${Math.floor(diffMin / 1440)}일 ${Math.floor((diffMin % 1440) / 60)}시간 전`;
+  const limitH = staleLimitHours();
+  const stale = diffMin > limitH * 60;
+  let text = `마지막 업데이트: ${kstLabel(ts)} (${timeStr})`;
+  if (stale) text += ` · ⚠️ ${limitH}시간 넘게 갱신 안 됨`;
+  if (!success) text += ` · ❌ 새로고침 실패${dataFromCache ? ' (저장된 마지막 데이터 표시)' : ''}${errMsg ? ': ' + errMsg : ''}`;
+  el.className = `last-update ${!success || stale ? 'stale' : 'fresh'}`;
+  el.textContent = text;
 }
 
 function renderError(err) {
   const html = `<div class="error-msg">
     데이터를 불러올 수 없습니다.<br>
     ⚙️ 설정에서 저장소 정보를 확인하거나, 잠시 후 다시 시도하세요.<br>
-    <br>오류: ${err.message}
+    <br>오류: ${esc(err && err.message)}
   </div>`;
   ['main', 'long', 'short', 'context'].forEach(p => {
     document.getElementById(`${p}-content`).innerHTML = html;
@@ -984,10 +1038,14 @@ function renderError(err) {
 // ──────────────────────────────────────────────────────────
 function render() {
   if (!appData) return;
-  renderMain();
-  renderLong();
-  renderShort();
-  renderContext();
+  // 탭별로 따로 보호: 한 탭 오류가 다른 탭을 지우지 않게 (v14.4)
+  [['main', renderMain], ['long', renderLong], ['short', renderShort], ['context', renderContext]].forEach(([p, fn]) => {
+    try { fn(); } catch (e) {
+      console.error(p, e);
+      const el = document.getElementById(`${p}-content`);
+      if (el) el.innerHTML = `<div class="error-msg">이 탭을 그리는 중 오류: ${esc(e.message)}<br>다른 탭은 정상일 수 있습니다.</div>`;
+    }
+  });
 }
 
 function renderMain() {
@@ -1045,10 +1103,10 @@ function renderMain() {
   
   // 강력 신호 배너 (검증된 최강 신호 - 상단 최우선 표시)
   let html = renderHealthBanner(appData.health);
-  html += renderStrongSignalBanners(long?.level, short?.level, conflict, short?.trend_defense);
+  html += renderTrendDefense(short?.trend_defense);   // 핵심①: 최우선 (v14.4)
+  html += renderStrongSignalBanners(long?.level, short?.level, short?.trend_defense);
   html += renderNdxDdBadge(short?.ndx_dd);
   html += renderLongWatchBadges(long);
-  html += renderTrendDefense(short?.trend_defense);
   
   html += `
     <div class="status-big level-${primaryLevel}">
@@ -1058,32 +1116,12 @@ function renderMain() {
     </div>
   `;
   
-  // 충돌 배너 — 정직한 메시지 (Walk-Forward 검증 후)
-  if (conflict) {
-    // conflict_buy_sell (장기 매수 + 단기 매도)은 정직한 메시지로 오버라이드
-    let cb_title = conflict.title;
-    let cb_desc = conflict.desc || '';
-    let cb_level = conflict.level;
-    
-    if (conflict.type === "conflict_buy_sell") {
-      cb_title = "⚠️ 충돌: 장기 매수 + 단기 매도";
-      cb_desc = "장기와 단기 신호 방향이 다름 — 진입 보류 권고. " +
-                "<small style='color:#94a3b8;'>(과거 적중률은 시기 의존성 큼)</small>";
-      cb_level = "warn";  // danger → warn으로 강등
-    }
-    
-    const clsMap = { good: 'conflict-good', warn: 'conflict-warn', danger: 'conflict-danger', info: 'conflict-info' };
-    const cls = clsMap[cb_level] || 'conflict-info';
-    const icon = cb_level === 'good' ? '✓' : 
-                 cb_level === 'danger' ? '⚠️' :
-                 cb_level === 'warn' ? '⚠️' : 'ℹ️';
+  // 충돌 신호는 v14에서 운영 제외 (2026-11-03 제거). 신호 미수신 안내만 표시
+  if (conflict && conflict.type === "incomplete") {
     html += `
-      <div class="conflict-banner ${cls}">
-        <div class="cb-icon">${icon}</div>
-        <div class="cb-body">
-          <div class="cb-title">${cb_title}</div>
-          <div class="cb-desc">${cb_desc}</div>
-        </div>
+      <div class="conflict-banner conflict-info">
+        <div class="cb-icon">ℹ️</div>
+        <div class="cb-body"><div class="cb-title">${esc(conflict.title)}</div></div>
       </div>
     `;
   }
@@ -1094,16 +1132,16 @@ function renderMain() {
       <div class="summary-cell" onclick="goToTab('long')">
         <div class="sc-label">📊 장기 (12M)</div>
         <div class="sc-level level-${long?.level || 'NEUTRAL'}" style="background:none; padding:0;">
-          ${long?.level || '?'}
+          ${esc(long?.level || '?')}
         </div>
-        <div class="sc-meta">${long?.score !== undefined ? '점수 ' + (long.score >= 0 ? '+' : '') + long.score.toFixed(1) : ''}</div>
+        <div class="sc-meta">${typeof long?.score === 'number' ? '점수 ' + fmtPct(long.score).replace('%', '') : ''}${SELL_LEVELS_V8.includes(long?.level) ? ' · 매도 등급 운영 제외' : ''}</div>
       </div>
       <div class="summary-cell" onclick="goToTab('short')">
         <div class="sc-label">⚡ 단기 (3M)</div>
         <div class="sc-level level-${short?.level || 'NEUTRAL'}" style="background:none; padding:0;">
-          ${short?.level || '?'}
+          ${esc(short?.level || '?')}
         </div>
-        <div class="sc-meta">${short?.score !== undefined ? '점수 ' + (short.score >= 0 ? '+' : '') + short.score : ''}</div>
+        <div class="sc-meta">${typeof short?.score === 'number' ? '점수 ' + (short.score >= 0 ? '+' : '') + short.score : ''}</div>
       </div>
     </div>
   `;
@@ -1115,7 +1153,7 @@ function renderMain() {
   html += renderSignalGauges(long, short);
   
   // 행동 권고 카드
-  html += renderActionCard(long?.level, short?.level, conflict);
+  html += renderActionCard(long?.level, short?.level);
   
   // F&G 게이지 (참고용)
   html += renderFGGauge(long);
@@ -1132,8 +1170,8 @@ function renderMain() {
           <div class="alert-item alert-${a.level}" style="margin-bottom:8px;">
             <div class="alert-icon">⚠️</div>
             <div class="alert-body">
-              <div class="alert-title">${a.title}</div>
-              <div class="alert-desc">${a.desc}</div>
+              <div class="alert-title">${esc(a.title)}</div>
+              <div class="alert-desc">${esc(a.desc)}</div>
             </div>
           </div>
         `).join('')}
@@ -1164,34 +1202,15 @@ function renderMain() {
 }
 
 // ──────────────────────────────────────────────────────────
-// 강력 신호 배너 (Walk-Forward 검증 통과 신호만)
-// 
-// 표시 우선순위:
-//   1. v8 CRASH_BUY (★★★, 100% 적중, 희귀)
-//   2. v8 STRONG_BUY + v2 PANIC_BUY (★★★★ 슈퍼 매수)
-//      - (구 수치 폐기, 2026-10-28 사건 단위 재검증으로 대체)
-//      - 시기 분산: 2001, 2002, 2008, 2009, 2020, 2022
-//   3. v8 STRONG_BUY 단독 (★★★, 92.5% 방향)
-//      - Walk-Forward 5/6 구간 100% 적중
-//
-//   참고 배지 (★★):
-//     - v2 PANIC_BUY 단독
-//     - v2 SHIFT_DOWN 단독 (3M-10% 42%, 시기 변동성 큼)
-//
-//   제거된 신호 (Walk-Forward 검증 실패):
-//     - 충돌 신호: 2008 이전 의존, 2011 이후 16년간 0~15%만 적중
-//     - "매수 합의" 단독: Walk-Forward 1/6 구간만 안정
+// 투매 매수 배너 (v14): v8 CRASH_BUY · STRONG_BUY, v2 PANIC_BUY, 낙폭 경고(SHIFT_DOWN, 참고)
+//   근거 수치는 사건 단위 재검증(2026-10-28~29)만 사용. 충돌 신호는 운영 제외.
 // ──────────────────────────────────────────────────────────
-function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
+function renderStrongSignalBanners(longLevel, shortLevel, trend) {
   let html = '';
   // 방어 모드 중이면 매수 신호라도 비중 50% 유지 (2008년: 투매 신호 후 전량 매수 시 -50%)
   const defIdx = trend && trend.indexes ? Object.values(trend.indexes).filter(x => x.mode === "DEFENSE").map(x => x.name) : [];
   const defNote = defIdx.length
-    ? `<div class="ssb-footer" style="color:#fbbf24;">🛡️ ${defIdx.join('·')} 방어 모드 중 — 비중 50% 유지, 그 안에서 분할 매수</div>` : '';
-  
-  const LONG_BUY = ["CRASH_BUY", "STRONG_BUY", "BUY", "WATCH"];
-  const SHORT_BUY = ["PANIC_BUY", "SHIFT_UP", "CAUTION_UP"];
-  const SHORT_SELL = ["SHIFT_DOWN", "CAUTION_DOWN"];
+    ? `<div class="ssb-footer" style="color:#fbbf24;">🛡️ ${esc(defIdx.join('·'))} 방어 모드 중 — 비중 50% 유지, 그 안에서 분할 매수</div>` : '';
   
   // ★★★★ 1) v8 CRASH_BUY — 역사적 매수 기회 (희귀)
   if (longLevel === "CRASH_BUY") {
@@ -1202,7 +1221,7 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
           <span class="ssb-tag">★★★ 희귀 투매 신호</span>
         </div>
         <div class="ssb-title">💎 v8 CRASH_BUY</div>
-        <div class="ssb-desc">과거 2건 모두 12M +15% 이상 — 표본이 2건뿐</div>
+        <div class="ssb-desc">과거 2건뿐 — 통계 근거 약함</div>
         <div class="ssb-footer">📊 표본 2건 (희귀, 통계적 근거 약함) · 분할 매수</div>
         ${defNote}
       </div>
@@ -1244,11 +1263,11 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
   // v2 SHIFT_DOWN 단독 (정직한 라벨)
   if (shortLevel === "SHIFT_DOWN" && !hasMajorBanner) {
     html += `
-      <div class="minor-signal-badge sell">
+      <div class="minor-signal-badge">
         <div class="msb-icon">📉</div>
         <div class="msb-body">
-          <div class="msb-title">★★ 낙폭 위험 경고 (강) · SHIFT_DOWN</div>
-          <div class="msb-desc">3개월 내 -10% 하락 확률 <strong>26.5%</strong> (평소 12.1%) · 이후 수익은 평소 이상이라 매도 권고 아님</div>
+          <div class="msb-title">낙폭 위험 경고 (강) · SHIFT_DOWN · 참고</div>
+          <div class="msb-desc">3개월 내 -10% 하락 경험 <strong>26.5%</strong> (평소 12.1%) · 이후 수익은 평소와 같거나 높음 → 매도 권고 아님</div>
         </div>
       </div>
     `;
@@ -1263,16 +1282,15 @@ function renderStrongSignalBanners(longLevel, shortLevel, conflict, trend) {
 // ──────────────────────────────────────────────────────────
 function renderNdxDdBadge(n) {
   if (!n || n.dd_pct === undefined || n.dd_pct === null) return '';
-  const fmt = (x) => Number(x).toLocaleString('en-US', {maximumFractionDigits: 0});
   if (n.active) {
     const bt = n.backtest || {};
     return `
       <div class="minor-signal-badge buy">
         <div class="msb-icon">🟦</div>
         <div class="msb-body">
-          <div class="msb-title">★★ 나스닥 -10% 첫 진입 (${n.last_event_date})</div>
-          <div class="msb-desc">NDX ${fmt(n.ndx)} · 52주 고점 대비 <strong>${n.dd_pct.toFixed(1)}%</strong> · 과거 ${bt.events}회 60일 후 평균 <strong>+${bt.f60_mean}%</strong> (기준선 +${bt.f60_base}%)</div>
-          <div class="msb-desc">${bt.long ? '장기 ' + bt.long : ''}</div>
+          <div class="msb-title">★★ 나스닥 -10% 첫 진입 (${esc(n.last_event_date)})</div>
+          <div class="msb-desc">NDX ${fmtInt(n.ndx)} · 52주 고점 대비 <strong>${fmtNum(n.dd_pct)}%</strong>${bt.events ? ` · 2011~ ${esc(bt.events)}회 60일 후 평균 <strong>${fmtPct(bt.f60_mean)}</strong> (기준선 ${fmtPct(bt.f60_base)})` : ''}</div>
+          <div class="msb-desc">${bt.long ? '장기 ' + esc(bt.long) : ''}</div>
           <div class="msb-desc" style="color:#f59e0b;">약세장 초입에서 실패 (2000·2007·2022: 12개월 -20~-66%) → 분할 매수, 월말 방어 모드 전환 시 50%로</div>
         </div>
       </div>
@@ -1284,7 +1302,7 @@ function renderNdxDdBadge(n) {
         <div class="msb-icon">🟦</div>
         <div class="msb-body">
           <div class="msb-title">나스닥 -10% 신호 접근 중</div>
-          <div class="msb-desc">NDX ${fmt(n.ndx)} · 52주 고점 대비 ${n.dd_pct.toFixed(1)}% · 발동선 ${fmt(n.trigger_level)}</div>
+          <div class="msb-desc">NDX ${fmtInt(n.ndx)} · 52주 고점 대비 ${fmtNum(n.dd_pct)}% · 발동선 ${fmtInt(n.trigger_level)} (종가 기준)</div>
         </div>
       </div>
     `;
@@ -1304,8 +1322,8 @@ function renderLongWatchBadges(l) {
       <div class="minor-signal-badge buy">
         <div class="msb-icon">🎯</div>
         <div class="msb-body">
-          <div class="msb-title">${p.next_level}까지 ${p.gap.toFixed(1)}점</div>
-          <div class="msb-desc">현재 ${l.level} ${l.score >= 0 ? '+' : ''}${Number(l.score).toFixed(1)} · 기준 ${p.next_threshold}</div>
+          <div class="msb-title">${esc(p.next_level)}까지 ${fmtNum(p.gap)}점</div>
+          <div class="msb-desc">현재 ${esc(l.level)} ${fmtPct(l.score).replace('%', '')} · 기준 ${esc(p.next_threshold)}</div>
         </div>
       </div>`;
   }
@@ -1313,18 +1331,24 @@ function renderLongWatchBadges(l) {
     html += `
       <div class="minor-signal-badge">
         <div class="msb-icon">🔒</div>
-        <div class="msb-body"><div class="msb-desc">${p.capped}</div></div>
+        <div class="msb-body"><div class="msb-desc">${esc(p.capped)}</div></div>
       </div>`;
   }
   const lc = l.late_cycle;
-  if (lc && lc.status !== 'NONE') {
+  if (lc && lc.status === 'UNKNOWN') {
+    html += `
+      <div class="minor-signal-badge">
+        <div class="msb-icon">❔</div>
+        <div class="msb-body"><div class="msb-desc">LATE_CYCLE 판정 보류 — HY 또는 2s10s 수집 실패</div></div>
+      </div>`;
+  } else if (lc && lc.status !== 'NONE') {
     const active = lc.status === 'ACTIVE';
     html += `
       <div class="minor-signal-badge ${active ? 'sell' : ''}">
         <div class="msb-icon">${active ? '🟠' : '🟡'}</div>
         <div class="msb-body">
           <div class="msb-title">${active ? '후기 사이클(LATE_CYCLE) 진입' : 'LATE_CYCLE 전환 임박'}</div>
-          <div class="msb-desc">HY ${lc.hy}bp (기준 ${lc.hy_threshold}) · 2s10s ${lc.yc >= 0 ? '+' : ''}${Number(lc.yc).toFixed(2)}% (기준 ${lc.yc_threshold}) · 점수 가중치 변화일 뿐 매도 신호 아님</div>
+          <div class="msb-desc">HY ${fmtInt(lc.hy)}bp (기준 ${esc(lc.hy_threshold)}) · 2s10s ${fmtPct(lc.yc, 2)} (기준 ${esc(lc.yc_threshold)}) · 점수 가중치 변화일 뿐 매도 신호 아님</div>
         </div>
       </div>`;
   }
@@ -1341,7 +1365,7 @@ function getCyclePosition(longLevel, shortLevel) {
   
   const longBuyStrong = longLevel === "CRASH_BUY" || longLevel === "STRONG_BUY";
   const longBuyWeak = longLevel === "BUY" || longLevel === "WATCH";
-  const longSell = longLevel === "CAUTION" || longLevel === "WARNING" || longLevel === "STRONG_SELL";
+  const longSell = false;   // v8 매도 등급은 운영 제외 (v14.4) — 중립과 같이 취급
   const shortBuyStrong = shortLevel === "PANIC_BUY";
   const shortBuyMid = shortLevel === "SHIFT_UP";
   const shortBuyWeak = shortLevel === "CAUTION_UP";
@@ -1364,7 +1388,6 @@ function getCyclePosition(longLevel, shortLevel) {
   if (shortBuyStrong) return { pos: 0, name: "패닉 바닥", desc: "단기 패닉 매수" };
   if (shortBuyMid) return { pos: 2, name: "강세 확장", desc: "단기 매수 진입" };
   if (longBuyWeak) return { pos: 2, name: "강세 확장", desc: "장기 양호" };
-  if (longSell) return { pos: 4, name: "정점 영역", desc: "장기 약한 매도" };
   return { pos: 3, name: "안주", desc: "특별 신호 없음" };
 }
 
@@ -1391,7 +1414,7 @@ function renderMarketCycle(longLevel, shortLevel) {
     "→ 강세 확장 (장기 BUY 진입 시)",
     "→ 안주 / 정점 (모멘텀 약화 시)",
     "→ 정점 영역 (장기 약화 시)",
-    "→ 초기 하락 (단기 매도 발효 시)",
+    "→ 초기 하락 (낙폭 경고 발효 시)",
     "→ 변동 확대 (SHIFT_DOWN 발효 시)",
     "→ 베어 바닥 (단기 패닉 도달 시)",
     "→ 회복 (장기 매수 신호 시)",
@@ -1440,8 +1463,9 @@ function levelToGaugeScore(level) {
     CRASH_BUY: 100, STRONG_BUY: 85, BUY: 50, WATCH: 25,
     PANIC_BUY: 100, SHIFT_UP: 65, CAUTION_UP: 30,
     NEUTRAL: 0,
-    CAUTION_DOWN: -35, CAUTION: -40,
-    SHIFT_DOWN: -75, WARNING: -65, STRONG_SELL: -90,
+    CAUTION_DOWN: -35, SHIFT_DOWN: -75,
+    // v8 매도 등급(CAUTION 이하)은 운영 제외 → 0 (v14.4)
+    CAUTION: 0, WARNING: 0, STRONG_SELL: 0, CRASH_WARNING: 0,
   };
   return map[level] !== undefined ? map[level] : 0;
 }
@@ -1466,24 +1490,17 @@ function renderSignalGauges(long, short) {
   
   // 결합 요약
   let summary;
-  if (longScore >= 50 && shortScore >= 30) {
-    summary = "✅ 매수 합의 — 강한 진입 신호";
-  } else if (longScore <= -30 && shortScore <= -30) {
-    summary = "📉 매도 합의 — 단기 매도 신뢰";
-  } else if (longScore >= 30 && shortScore <= -30) {
-    summary = "⚠️ 충돌 — 진입 보류 권고";
-  } else if (longScore <= -30 && shortScore >= 30) {
-    summary = "⚠️ 충돌 — 단기 반등, 장기 위험";
+  // 장기·단기 조합(합의·충돌)은 검증 실패로 운영 제외 — 각각의 의미만 표시 (v14.4)
+  if (longScore >= 85) {
+    summary = "장기 투매 구간 매수 신호";
+  } else if (shortScore >= 100) {
+    summary = "단기 투매 신호 (PANIC_BUY)";
   } else if (Math.abs(longScore) < 20 && Math.abs(shortScore) < 20) {
     summary = "⚪ 중립 — 현 포지션 유지";
-  } else if (longScore >= 30) {
-    summary = "장기 매수 신호 (단기 중립)";
-  } else if (shortScore >= 30) {
-    summary = "단기 매수 시도 (장기 대기)";
   } else if (shortScore <= -30) {
-    summary = "단기 낙폭 위험 경고 — 매도 권고 아님";
-  } else if (longScore <= -30) {
-    summary = "장기 약한 매도 — 관망";
+    summary = "단기 낙폭 위험 경고 (참고) — 매도 권고 아님";
+  } else if (longScore >= 30 || shortScore >= 30) {
+    summary = "약한 매수 신호 — 아무 날과 차이 작음, 참고만";
   } else {
     summary = "혼합 신호 — 모니터링";
   }
@@ -1495,14 +1512,14 @@ function renderSignalGauges(long, short) {
       <div class="gauge-row">
         <div class="gauge-header">
           <span class="gauge-label">📊 장기 (12M)</span>
-          <span class="gauge-value">${long?.level || 'N/A'} · ${longScore >= 0 ? '+' : ''}${longScore}</span>
+          <span class="gauge-value">${esc(long?.level || 'N/A')}${SELL_LEVELS_V8.includes(long?.level) ? ' (운영 제외)' : ''} · ${longScore >= 0 ? '+' : ''}${longScore}</span>
         </div>
         <div class="gauge-track">
           <div class="gauge-center"></div>
           <div class="gauge-marker ${gaugeMarkerClass(longScore)}" style="left: ${longPct}%;"></div>
         </div>
         <div class="gauge-scale">
-          <span>매도 강함</span>
+          <span>약함</span>
           <span>중립</span>
           <span>매수 강함</span>
         </div>
@@ -1511,7 +1528,7 @@ function renderSignalGauges(long, short) {
       <div class="gauge-row">
         <div class="gauge-header">
           <span class="gauge-label">⚡ 단기 (3M)</span>
-          <span class="gauge-value">${short?.level || 'N/A'} · ${shortScore >= 0 ? '+' : ''}${shortScore}</span>
+          <span class="gauge-value">${esc(short?.level || 'N/A')} · ${shortScore >= 0 ? '+' : ''}${shortScore}</span>
         </div>
         <div class="gauge-track">
           <div class="gauge-center"></div>
@@ -1535,7 +1552,7 @@ function renderSignalGauges(long, short) {
 // ──────────────────────────────────────────────────────────
 // 행동 권고 카드
 // ──────────────────────────────────────────────────────────
-function getActionRecommendation(longLevel, shortLevel, conflict) {
+function getActionRecommendation(longLevel, shortLevel) {
   // 우선순위에 따라 행동 결정
   const longBuyStrong = longLevel === "CRASH_BUY" || longLevel === "STRONG_BUY";
   const shortBuyStrong = shortLevel === "PANIC_BUY";
@@ -1567,39 +1584,15 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
     };
   }
   
-  // 매수 합의
-  if (longBuyStrong && (shortBuyMid || shortLevel === "CAUTION_UP")) {
-    return {
-      type: "do-buy",
-      icon: "📈",
-      title: "매수 합의 (참고)",
-      desc: "장기 강세 + 단기 모멘텀. 검증상 아무 날과 차이 작음.",
-      confidence: { level: "low", value: 20, label: "낮음" },
-      backtest: "매수 합의 사건 13회: 12M+15% 50% (아무 날 46%) — 차이 작음, 참고용",
-    };
-  }
-  
-  // 충돌 (장기 매수 + 단기 매도)
-  if (conflict?.type === "conflict_buy_sell") {
-    return {
-      type: "do-wait",
-      icon: "⚠️",
-      title: "진입 보류 검토",
-      desc: "장기/단기 신호 방향 다름. 단기 정리 후 진입 검토.",
-      confidence: { level: "low", value: 30, label: "낮음" },
-      backtest: "시기 의존성 큼 — 2008 이전엔 작동, 2011 이후 16년간 약함",
-    };
-  }
-  
-  // 단기 매도
+  // 낙폭 위험 경고 (참고, 매도 권고 아님)
   if (shortSellStrong) {
     return {
-      type: "do-sell",
+      type: "do-wait",
       icon: "📉",
       title: "낙폭 위험 경고 (강)",
       desc: "큰 변동 구간. 매도 권고 아님 — 신규 매수는 분할로, 레버리지 자제.",
       confidence: { level: "medium", value: 27, label: "중간" },
-      backtest: "SHIFT_DOWN 3개월 내 -10% 하락 26.5% (평소 12.1%) · n=170 · 2011-2026",
+      backtest: "SHIFT_DOWN 3개월 내 -10% 하락 경험 26.5% (평소 12.1%) · 2011-2026 · 이후 수익은 평소와 같음",
     };
   }
   
@@ -1610,7 +1603,7 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
       title: "낙폭 위험 경고",
       desc: "낙폭 위험이 평소의 약 2배. 매도 권고 아님 — 신규 매수는 분할로.",
       confidence: { level: "medium", value: 23, label: "중간" },
-      backtest: "CAUTION_DOWN 3개월 내 -10% 하락 22.8% (평소 12.1%) · n=381 · 2011-2026",
+      backtest: "CAUTION_DOWN 3개월 내 -10% 하락 경험 22.8% (평소 12.1%) · 2011-2026 · 이후 수익은 평소와 같음",
     };
   }
   
@@ -1637,18 +1630,6 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
     };
   }
   
-  // 장기 약한 매도
-  if (longLevel === "CAUTION" || longLevel === "WARNING") {
-    return {
-      type: "do-wait",
-      icon: "⚪",
-      title: "관망",
-      desc: "장기 약한 매도 신호 (낮은 신뢰). 단기 신호 대기.",
-      confidence: { level: "very-low", value: 16, label: "낮음" },
-      backtest: "v9 매도 적중률 16% — 운영 제외 신호, 참고용",
-    };
-  }
-  
   // 기본: 중립
   return {
     type: "do-hold",
@@ -1660,8 +1641,8 @@ function getActionRecommendation(longLevel, shortLevel, conflict) {
   };
 }
 
-function renderActionCard(longLevel, shortLevel, conflict) {
-  const action = getActionRecommendation(longLevel, shortLevel, conflict);
+function renderActionCard(longLevel, shortLevel) {
+  const action = getActionRecommendation(longLevel, shortLevel);
   
   return `
     <div class="card action-card">
@@ -1778,21 +1759,21 @@ function renderTrendDefense(td) {
   if (!td || !td.indexes) {
     return `<div class="card cash-card"><div class="cash-header"><span class="fg-title">🛡️ 추세 방어 모드</span><span class="cash-profile">데이터 대기</span></div></div>`;
   }
-  const rows = Object.values(td.indexes).map(x => {
+  const rows = Object.values(td.indexes).filter(Boolean).map(x => {
     const def = x.mode === "DEFENSE";
     const color = def ? "#fb923c" : "#22c55e";
     const label = def ? "방어 모드" : "정상";
     const flip = x.flip_risk
-      ? `<div style="margin-top:6px;font-size:12px;color:#fbbf24;">⚠️ 이번 달 진행 중 ${x.live_gap_pct >= 0 ? "+" : ""}${x.live_gap_pct.toFixed(1)}% — 월말까지 이대로면 <b>${x.live_mode === "DEFENSE" ? "방어 모드 전환" : "정상 복귀"}</b></div>`
-      : `<div style="margin-top:6px;font-size:12px;color:#94a3b8;">이번 달 진행 중 ${x.live_gap_pct >= 0 ? "+" : ""}${x.live_gap_pct.toFixed(1)}% (${x.live_date}) · 판정 유지 예상</div>`;
+      ? `<div style="margin-top:6px;font-size:12px;color:#fbbf24;">⚠️ 이번 달 진행 중 ${fmtPct(x.live_gap_pct)} (${esc(x.live_date)} 종가) — 월말까지 이대로면 <b>${x.live_mode === "DEFENSE" ? "방어 모드 전환" : "정상 복귀"}</b></div>`
+      : `<div style="margin-top:6px;font-size:12px;color:#94a3b8;">이번 달 진행 중 ${fmtPct(x.live_gap_pct)} (${esc(x.live_date)} 종가) · 판정 유지 예상</div>`;
     return `
       <div style="padding:10px 0;border-top:1px solid rgba(148,163,184,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
-          <span style="font-weight:600;">${x.name}</span>
-          <span style="color:${color};font-weight:700;">${label} · 주식 ${x.equity_pct}%</span>
+          <span style="font-weight:600;">${esc(x.name)}</span>
+          <span style="color:${color};font-weight:700;">${label} · 주식 ${esc(x.equity_pct)}%</span>
         </div>
         <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">
-          ${x.decided_month} 월말 ${Math.round(x.month_close).toLocaleString()} · 10개월선 ${Math.round(x.sma10).toLocaleString()} (${x.gap_pct >= 0 ? "+" : ""}${x.gap_pct.toFixed(1)}%)
+          ${esc(x.decided_month)} 월말 ${fmtInt(x.month_close)} · 10개월선 ${fmtInt(x.sma10)} (${fmtPct(x.gap_pct)})
         </div>
         ${flip}
       </div>`;
@@ -1802,16 +1783,16 @@ function renderTrendDefense(td) {
     <div class="card cash-card">
       <div class="cash-header">
         <span class="fg-title" style="white-space:nowrap;">🛡️ 추세 방어</span>
-        <span class="cash-profile">다음 판정 ${td.next_decision || ""}</span>
+        <span class="cash-profile">다음 판정 ${esc(td.next_decision || "")}</span>
       </div>
-      <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${td.rule}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">${esc(td.rule)}</div>
       ${rows}
       <div class="cash-reasons" style="margin-top:8px;">
         <div class="cash-reasons-label">장기 검증</div>
-        <div class="cash-reason-row"><span class="cash-reason-text">S&amp;P ${bt.SPX || ""}</span></div>
-        <div class="cash-reason-row"><span class="cash-reason-text">나스닥 ${bt.NDX || ""}</span></div>
-        <div class="cash-reason-row"><span class="cash-reason-text">비용: ${bt.cost || ""}</span></div>
-        <div class="cash-reason-row"><span class="cash-reason-text">한계: ${bt.limit || ""}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">S&amp;P ${esc(bt.SPX)}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">나스닥100 ${esc(bt.NDX)}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">비용: ${esc(bt.cost)}</span></div>
+        <div class="cash-reason-row"><span class="cash-reason-text">한계: ${esc(bt.limit)}</span></div>
       </div>
     </div>
   `;
@@ -1828,14 +1809,17 @@ function renderHealthCheck() {
   // 각 체크 항목
   const checks = [];
   
-  // yfinance 데이터 (지표 개수로 추정)
-  const indCount = Object.keys(ind).filter(k => ind[k] !== null && ind[k] !== undefined).length;
-  if (indCount >= 15) {
-    checks.push({ icon: "✓", text: `yfinance ${indCount}/17`, color: "#22c55e" });
-  } else if (indCount >= 10) {
-    checks.push({ icon: "⚠", text: `yfinance ${indCount}/17`, color: "#fb923c" });
+  // yfinance 티커 수집 (health.missing_tickers 기준, 17개)
+  const missT = appData.health?.missing_tickers;
+  const got = Array.isArray(missT) ? 17 - missT.length : null;
+  if (got === null) {
+    checks.push({ icon: "?", text: "yfinance 상태 미확인", color: "#94a3b8" });
+  } else if (got >= 17) {
+    checks.push({ icon: "✓", text: `yfinance ${got}/17`, color: "#22c55e" });
+  } else if (got >= 12) {
+    checks.push({ icon: "⚠", text: `yfinance ${got}/17`, color: "#fb923c" });
   } else {
-    checks.push({ icon: "✗", text: `yfinance ${indCount}/17`, color: "#ef4444" });
+    checks.push({ icon: "✗", text: `yfinance ${got}/17`, color: "#ef4444" });
   }
   
   // 장기 데이터
@@ -1847,26 +1831,30 @@ function renderHealthCheck() {
   
   // F&G (long에 있어야 함)
   if (long && long.fg !== undefined && long.fg !== null) {
-    checks.push({ icon: "✓", text: `F&G ${long.fg}`, color: "#22c55e" });
+    checks.push({ icon: "✓", text: `F&amp;G ${esc(long.fg)}`, color: "#22c55e" });
   } else {
-    checks.push({ icon: "?", text: "F&G 없음", color: "#94a3b8" });
+    checks.push({ icon: "?", text: "F&amp;G 없음", color: "#94a3b8" });
   }
   
-  // 다음 실행 시각
-  const now = new Date();
-  const kstNow = new Date(now.getTime() + (9 * 60 - now.getTimezoneOffset()) * 60000);
-  const hour = kstNow.getUTCHours();
-  const minute = kstNow.getUTCMinutes();
-  
-  let nextTime;
-  if (hour < 7 || (hour === 7 && minute < 30)) {
-    nextTime = "오늘 07:30";
-  } else if (hour < 22 || (hour === 22 && minute < 30)) {
-    nextTime = "오늘 22:30";
-  } else {
-    nextTime = "내일 07:30";
+  // 다음 예약 실행 (KST, 기기 시간대 무관). 아침 07:30은 화~토, 저녁 22:30은 월~금 (UTC 평일 예약)
+  //   실제 실행은 아침 약 2시간, 저녁 4~6시간 늦음
+  const nowMs = Date.now();
+  const WD = ['일', '월', '화', '수', '목', '금', '토'];
+  let nextTime = '-';
+  for (let dd = 0; dd < 8 && nextTime === '-'; dd++) {
+    for (const [h, m, days] of [[7, 30, [2, 3, 4, 5, 6]], [22, 30, [1, 2, 3, 4, 5]]]) {
+      const k = kstParts(new Date(nowMs + dd * 86400e3));
+      const t = Date.UTC(k.y, k.mo, k.day, h - 9, m);
+      if (t > nowMs && days.includes(k.wd)) {
+        nextTime = `${dd === 0 ? '오늘' : dd === 1 ? '내일' : WD[k.wd] + '요일'} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        break;
+      }
+    }
   }
-  checks.push({ icon: "⏰", text: `다음 ${nextTime}`, color: "#94a3b8" });
+  checks.push({ icon: "⏰", text: `다음 예약 ${nextTime} (실제는 늦게 실행)`, color: "#94a3b8" });
+  if (appData.health?.intraday_excluded) {
+    checks.push({ icon: "ℹ", text: "장중 실행 — 전일 종가 기준", color: "#94a3b8" });
+  }
   
   // 종합 상태
   const failures = checks.filter(c => c.color === "#ef4444").length;
@@ -1909,13 +1897,14 @@ function renderLong() {
   }
   
   const emoji = getEmoji(long.level);
-  const score = long.score !== undefined ? (long.score >= 0 ? '+' : '') + long.score.toFixed(2) : '?';
+  const score = typeof long.score === 'number' ? fmtPct(long.score, 2).replace('%', '') : '?';
+  const sellNote = SELL_LEVELS_V8.includes(long.level) ? ' · 매도 등급은 운영 제외 (중립과 같이 취급)' : '';
   
   let html = `
-    <div class="status-big level-${long.level || 'NEUTRAL'}">
+    <div class="status-big level-${SELL_LEVELS_V8.includes(long.level) ? 'NEUTRAL' : esc(long.level || 'NEUTRAL')}">
       <div class="status-emoji">${emoji}</div>
-      <div class="status-level">${long.level || 'UNKNOWN'}</div>
-      <div class="status-sub">점수 ${score} · 시간 지평 12M ±15%</div>
+      <div class="status-level">${esc(long.level || 'UNKNOWN')}</div>
+      <div class="status-sub">점수 ${score} · 시간 지평 12M ±15%${sellNote}</div>
     </div>
   `;
   
@@ -1961,7 +1950,7 @@ function renderLong() {
     html += `
       <div class="card">
         <div class="card-title">🌐 국면</div>
-        <div style="font-size:16px; font-weight:600; color:#cbd5e1;">${long.regime}</div>
+        <div style="font-size:16px; font-weight:600; color:#cbd5e1;">${esc(long.regime)}</div>
       </div>
     `;
   }
@@ -1992,12 +1981,12 @@ function renderShort() {
   }
   
   const emoji = getEmoji(short.level);
-  const score = short.score !== undefined ? (short.score >= 0 ? '+' : '') + short.score : '?';
+  const score = typeof short.score === 'number' ? (short.score >= 0 ? '+' : '') + short.score : '?';
   
   let html = `
     <div class="status-big level-${short.level || 'NEUTRAL'}">
       <div class="status-emoji">${emoji}</div>
-      <div class="status-level">${short.level || 'UNKNOWN'}</div>
+      <div class="status-level">${esc(short.level || 'UNKNOWN')}</div>
       <div class="status-sub">점수 ${score} · 시간 지평 3M ±10%</div>
     </div>
   `;
@@ -2006,7 +1995,7 @@ function renderShort() {
   const p = short.pillars || {};
   html += `
     <div class="card">
-      <div class="card-title">🏛️ 4-Pillar 점수 <span class="card-hint">매도 측정</span></div>
+      <div class="card-title">🏛️ 4-Pillar 점수 <span class="card-hint">낙폭 위험 측정</span></div>
       <div class="pillar-grid">
         ${renderPillar('A', p.A_price_momentum, '가격')}
         ${renderPillar('B', p.B_drawdown, '낙폭')}
@@ -2028,8 +2017,8 @@ function renderShort() {
           ${buyTriggers.map(t => `
             <div class="trigger-item">
               <span class="trigger-pill buy">매수</span>
-              <span class="trigger-name">${t.name}</span>
-              <span class="trigger-weight">+${t.weight}</span>
+              <span class="trigger-name">${esc(t.name)}</span>
+              <span class="trigger-weight">+${esc(t.weight)}</span>
             </div>
           `).join('')}
         </div>
@@ -2039,25 +2028,25 @@ function renderShort() {
   
   html += `
     <div class="card">
-      <div class="card-title">📉 활성 매도 트리거 <span class="card-hint">${sellTriggers.length}개</span></div>
+      <div class="card-title">📉 낙폭 위험 트리거 <span class="card-hint">${sellTriggers.length}개 · 매도 권고 아님</span></div>
       ${sellTriggers.length > 0 ? `
         <div class="trigger-list">
           ${sellTriggers.map(t => `
             <div class="trigger-item">
-              <span class="trigger-pill sell">[${t.pillar}]</span>
-              <span class="trigger-name">${t.name}</span>
-              <span class="trigger-weight">+${t.weight}</span>
+              <span class="trigger-pill sell">[${esc(t.pillar)}]</span>
+              <span class="trigger-name">${esc(t.name)}</span>
+              <span class="trigger-weight">+${esc(t.weight)}</span>
             </div>
           `).join('')}
         </div>
-      ` : '<div class="empty-state">활성 매도 트리거 없음</div>'}
+      ` : '<div class="empty-state">낙폭 위험 트리거 없음</div>'}
     </div>
   `;
   
   // 백테스트 적중률
   html += `
     <div class="card">
-      <div class="card-title">🎯 v2 백테스트 (2011-2026) <span class="card-hint">매수: 사건 단위 12M+15% · 매도: 일 단위 3M -10%</span></div>
+      <div class="card-title">🎯 v2 백테스트 (2011-2026) <span class="card-hint">매수: 사건 단위 12M+15% · 낙폭 경고: 3M 내 -10% 하락 경험</span></div>
       <table class="bt-table">
         <thead><tr><th>레벨</th><th>n</th><th class="num">12M +15%</th><th class="num">3M -10%</th></tr></thead>
         <tbody>
@@ -2065,11 +2054,11 @@ function renderShort() {
           ${renderBtRow('SHIFT_UP', '18회', '59%', '-', short.level)}
           ${renderBtRow('CAUTION_UP', '30회', '46%', '-', short.level)}
           ${renderBtRow('아무 날', '-', '46%', '12.1%', short.level)}
-          ${renderBtRow('CAUTION_DOWN', 381, '-', '22.8%*', short.level)}
-          ${renderBtRow('SHIFT_DOWN', 170, '-', '26.5%*', short.level)}
+          ${renderBtRow('CAUTION_DOWN', '-', '-', '22.8%*', short.level)}
+          ${renderBtRow('SHIFT_DOWN', '-', '-', '26.5%*', short.level)}
         </tbody>
       </table>
-      <div class="card-hint" style="margin-top:6px;">* 매도 행: 2011-2026 재검증(2026-10-28), 3개월 내 SPX -10% 하락 경험 확률 · 평소 12.1% · 매도 권고 아닌 낙폭 위험 경고</div>
+      <div class="card-hint" style="margin-top:6px;">* 낙폭 경고 행: 2011-2026 재검증(2026-10-28), 발생일 기준 3개월 내 SPX -10% 하락 경험 비율 · 평소 12.1% · 이후 수익은 평소와 같아 매도 권고 아님</div>
     </div>
   `;
   
@@ -2095,9 +2084,9 @@ function renderContext() {
         <div class="alert-item alert-${a.level}">
           <div class="alert-icon">⚠️</div>
           <div class="alert-body">
-            <div class="alert-title">${a.title}</div>
-            <div class="alert-desc">${a.desc}</div>
-            <div class="alert-backtest">📊 ${a.backtest}</div>
+            <div class="alert-title">${esc(a.title)}</div>
+            <div class="alert-desc">${esc(a.desc)}</div>
+            <div class="alert-backtest">📊 ${esc(a.backtest)}</div>
           </div>
         </div>
       `).join('') : '<div class="empty-state">활성 알람 없음</div>'}
@@ -2113,7 +2102,7 @@ function renderContext() {
         ${renderIndicator('KRE 20d', ind.KRE_20d_chg, '%', 2, true)}
       </div>
       <div style="font-size:11px; color:#64748b; margin-top:10px;">
-        20d &lt; -10% 단독 -15% 적중 28%, 5d &lt; -5% 단독 25%
+        알람 기준: 20d &lt; -10%, 5d &lt; -5% · 단독 효과 검증 안 됨 (참고)
       </div>
     </div>
   `;
@@ -2125,7 +2114,7 @@ function renderContext() {
         ${renderIndicator('SOXX 20d', ind.SOXX_20d_chg, '%', 2, true)}
       </div>
       <div style="font-size:11px; color:#64748b; margin-top:10px;">
-        20d &lt; -10% 단독 -15% 적중 28% (위험자산 선행)
+        알람 기준: 20d &lt; -10% · 단독 효과 검증 안 됨 (참고)
       </div>
     </div>
   `;
@@ -2137,7 +2126,7 @@ function renderContext() {
         ${renderIndicator('IWM/SPX 20d', ind.IWM_SPX_20d_chg, '%', 2, true)}
       </div>
       <div style="font-size:11px; color:#64748b; margin-top:10px;">
-        20d &lt; -5% 단독 -15% 적중 26% (소형주 약세 = 강세장 끝물)
+        알람 기준: 20d &lt; -5% (소형주만 약세) · 단독 효과 검증 안 됨 (참고)
       </div>
     </div>
   `;
@@ -2183,8 +2172,11 @@ function renderHealthBanner(h) {
   if (h.long_term_stale) msgs.push(h.long_term_ok
     ? `장기 v8 데이터가 ${Math.round(h.long_term_age_h)}시간째 갱신 안 됨 — 장기 신호는 옛 값`
     : '장기 v8 데이터를 불러오지 못함 — 장기 신호 없음');
-  if (h.long_term_missing && h.long_term_missing.length) msgs.push(`v8 입력 결측: ${h.long_term_missing.join(', ')} (해당 점수 0)`);
-  if (h.missing_tickers && h.missing_tickers.length) msgs.push(`단기 지표 결측: ${h.missing_tickers.join(', ')}`);
+  else if (h.long_term_ok === false) msgs.push('이번 실행에서 장기 v8 데이터를 받지 못함 — 이전 값 표시');
+  if (h.long_term_missing && h.long_term_missing.length) msgs.push(`v8 입력 결측: ${esc(h.long_term_missing.join(', '))} (해당 점수 0)`);
+  if (h.missing_tickers && h.missing_tickers.length) msgs.push(`단기 지표 결측: ${esc(h.missing_tickers.join(', '))}`);
+  if (h.trend_missing && h.trend_missing.length) msgs.push(`추세 방어 계산 실패: ${esc(h.trend_missing.join(', '))}`);
+  if (h.lagging_tickers && h.lagging_tickers.length) msgs.push(`지연 데이터(전일 값): ${esc(h.lagging_tickers.join(', '))}`);
   if (!msgs.length) return '';
   return `<div class="conflict-banner conflict-warn"><div class="cb-icon">⚠️</div><div class="cb-body">
     <div class="cb-title">데이터 상태 경고</div><div class="cb-desc">${msgs.join('<br>')}</div></div></div>`;
@@ -2196,7 +2188,7 @@ function getEmoji(level) {
     PANIC_BUY: "🚀", SHIFT_UP: "📈", CAUTION_UP: "🟢",
     NEUTRAL: "⚪",
     CAUTION_DOWN: "🟡", SHIFT_DOWN: "🔴",
-    CAUTION: "🟡", WARNING: "🔴", STRONG_SELL: "⚠️",
+    CAUTION: "⚪", WARNING: "⚪", STRONG_SELL: "⚪", CRASH_WARNING: "⚪",   // 매도 등급 운영 제외
   };
   return map[level] || "⚪";
 }
@@ -2217,7 +2209,7 @@ function renderIndicator(label, value, unit, precision, signed) {
   if (signed && num > 0) display = '+' + display;
   if (unit) display += unit;
   return `<div class="indicator-item">
-    <div class="indicator-label">${label}</div>
+    <div class="indicator-label">${esc(label)}</div>
     <div class="indicator-value ${cls}">${display}</div>
   </div>`;
 }
@@ -2235,7 +2227,7 @@ function renderPillar(letter, score, label) {
 function renderBtRow(level, n, up, dn, currentLevel) {
   const isCurrent = level === currentLevel;
   return `<tr class="${isCurrent ? 'current' : ''}">
-    <td>${isCurrent ? '▶ ' : ''}${level}</td>
+    <td>${isCurrent ? '▶ ' : ''}${esc(level)}</td>
     <td class="num">${n}</td>
     <td class="num">${up}</td>
     <td class="num">${dn}</td>

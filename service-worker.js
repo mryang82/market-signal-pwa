@@ -1,4 +1,4 @@
-// Service Worker for Market Signal v13
+// Service Worker for Market Signal v14
 // 강화된 자동 갱신 지원:
 // 1. 버전 변경 시 자동 감지 (CACHE_VERSION 변수)
 // 2. SKIP_WAITING 메시지 받으면 즉시 활성화
@@ -6,7 +6,7 @@
 // 4. 정적 자산도 네트워크 우선 (변경 즉시 반영)
 // 5. data_unified.json은 항상 네트워크 우선
 
-const CACHE_VERSION = 'v14.3.3';  // PANIC_BUY 장기(1990~) 수치 병기
+const CACHE_VERSION = 'v14.4.0';  // 충돌·매도 문구 제거, 갱신 실패 시 화면 유지, KST·36/72h 기준
 const CACHE_NAME = `signal-${CACHE_VERSION}`;
 
 const ASSETS = [
